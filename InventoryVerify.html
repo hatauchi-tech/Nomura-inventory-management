@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>棚卸照合・確定</title>
+  <?!= include('Common'); ?>
+</head>
+<body class="bg-gray-100">
+  <header class="bg-white shadow-md">
+    <div class="container mx-auto px-4 py-4">
+      <div class="flex items-center justify-between">
+        <h1 class="text-xl font-bold text-gray-900">在庫管理システム</h1>
+        <button onclick="goHome()" 
+                class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+          ホームに戻る
+        </button>
+      </div>
+    </div>
+  </header>
+  
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900">棚卸照合・確定</h1>
+    </div>
+    
+    <!-- 棚卸イベント作成 -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+      <h2 class="text-xl font-semibold text-gray-900 mb-4">新規棚卸イベント作成</h2>
+      <form id="create-event-form" class="flex space-x-4">
+        <input type="text" id="event-name" name="eventName" required
+               class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+               placeholder="例: 2025年11月度 棚卸し">
+        <button type="submit"
+                class="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
+          イベント作成
+        </button>
+      </form>
+    </div>
+    
+    <!-- 棚卸イベント選択 -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+      <h2 class="text-xl font-semibold text-gray-900 mb-4">棚卸イベント選択</h2>
+      <div class="flex space-x-4">
+        <select id="inventory-event"
+                class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="">選択してください</option>
+        </select>
+        <button onclick="verifyInventory()"
+                class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          照合実行
+        </button>
+        <button onclick="loadInventoryDetails()"
+                class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
+          明細表示
+        </button>
+      </div>
+    </div>
+    
+    <!-- メッセージ表示エリア -->
+    <div id="error-message" class="hidden bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+      <p class="text-sm text-red-700"></p>
+    </div>
+    
+    <div id="success-message" class="hidden bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+      <p class="text-sm text-green-700"></p>
+    </div>
+    
+    <!-- 照合結果表示エリア -->
+    <div id="verify-result" class="hidden bg-white rounded-lg shadow-md p-6 mb-6">
+      <h2 class="text-xl font-semibold text-gray-900 mb-4">照合結果</h2>
+      <div id="verify-content"></div>
+    </div>
+    
+    <!-- 棚卸明細表示・編集エリア -->
+    <div id="details-area" class="hidden bg-white rounded-lg shadow-md p-6">
+      <h2 class="text-xl font-semibold text-gray-900 mb-4">棚卸明細</h2>
+      <div class="table-container mb-4">
+        <table>
+          <thead>
+            <tr>
+              <th>製品ID</th>
+              <th>製品名</th>
+              <th>保管場所</th>
+              <th>理論在庫数</th>
+              <th>確定実在庫数</th>
+              <th>差異</th>
+              <th>差異理由</th>
+            </tr>
+          </thead>
+          <tbody id="details-tbody">
+          </tbody>
+        </table>
+      </div>
+      <button onclick="finalizeInventory()"
+              class="w-full bg-red-600 text-white py-3 px-4 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 font-semibold">
+        棚卸を確定する
+      </button>
+    </div>
+  </div>
+
+  <script>
+    let currentDetails = [];
+    
+    window.addEventListener('load', function() {
+      loadActiveInventoryEvents();
+      
+      document.getElementById('create-event-form').addEventListener('submit', handleCreateEvent);
+    });
+    
+    function loadActiveInventoryEvents() {
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const select = document.getElementById('inventory-event');
+          select.innerHTML = '<option value="">選択してください</option>';
+          data.forEach(event => {
+            const option = document.createElement('option');
+            option.value = event['棚卸ID'];
+            option.textContent = `${event['棚卸ID']} (${formatDateTime(event['棚卸実施日'])}) - ${event['ステータス']}`;
+            select.appendChild(option);
+          });
+        })
+        .withFailureHandler(showError)
+        .getActiveInventoryEvents();
+    }
+    
+    function handleCreateEvent(e) {
+      e.preventDefault();
+      hideMessages();
+      
+      const eventName = document.getElementById('event-name').value;
+      
+      showLoading();
+      google.script.run
+        .withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showSuccess(result.message + ' (ID: ' + result.inventoryId + ')');
+            document.getElementById('event-name').value = '';
+            loadActiveInventoryEvents();
+          } else {
+            showError(result.error);
+          }
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          showError('エラーが発生しました: ' + error.message);
+        })
+        .createInventoryEvent(eventName);
+    }
+    
+    function verifyInventory() {
+      const inventoryId = document.getElementById('inventory-event').value;
+      if (!inventoryId) {
+        showError('棚卸イベントを選択してください');
+        return;
+      }
+      
+      hideMessages();
+      showLoading();
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            displayVerifyResult(result);
+          } else {
+            showError(result.error);
+          }
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          showError('照合に失敗しました: ' + error.message);
+        })
+        .verifyInventoryCounts(inventoryId);
+    }
+    
+    function displayVerifyResult(result) {
+      const content = document.getElementById('verify-content');
+      
+      if (result.hasDiscrepancies) {
+        content.innerHTML = `
+          <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+            <p class="font-semibold text-yellow-800">⚠ カウント不一致が見つかりました</p>
+            <p class="text-sm text-yellow-700 mt-2">総アイテム数: ${result.totalItems}、不一致: ${result.discrepancies.length}</p>
+          </div>
+          <div class="space-y-2">
+            ${result.discrepancies.map(disc => `
+              <div class="border border-gray-300 rounded-lg p-3">
+                <p class="font-semibold">製品ID: ${disc.productId}、保管場所: ${disc.locationId}</p>
+                <p class="text-sm text-gray-600">理論在庫数: ${disc.theoreticalStock}</p>
+                <p class="text-sm">カウント結果: ${disc.counts.map(c => `${c.userId}: ${c.count}`).join(', ')}</p>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } else {
+        content.innerHTML = `
+          <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+            <p class="font-semibold text-green-800">✓ すべてのカウントが一致しています</p>
+            <p class="text-sm text-green-700 mt-2">総アイテム数: ${result.totalItems}</p>
+          </div>
+        `;
+      }
+      
+      document.getElementById('verify-result').classList.remove('hidden');
+    }
+    
+    function loadInventoryDetails() {
+      const inventoryId = document.getElementById('inventory-event').value;
+      if (!inventoryId) {
+        showError('棚卸イベントを選択してください');
+        return;
+      }
+      
+      hideMessages();
+      showLoading();
+      
+      google.script.run
+        .withSuccessHandler(function(data) {
+          hideLoading();
+          currentDetails = data;
+          displayDetails(data);
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          showError('明細の取得に失敗しました: ' + error.message);
+        })
+        .getInventoryDetails(inventoryId);
+    }
+    
+    function displayDetails(data) {
+      const tbody = document.getElementById('details-tbody');
+      tbody.innerHTML = '';
+      
+      if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-gray-500">データがありません</td></tr>';
+      } else {
+        data.forEach((item, index) => {
+          const tr = document.createElement('tr');
+          const discrepancy = item['確定実在庫数'] ? (item['確定実在庫数'] - item['理論在庫数']) : '';
+          
+          tr.innerHTML = `
+            <td>${item['製品ID']}</td>
+            <td>${item['製品名']}</td>
+            <td>${item['場所名']}</td>
+            <td>${formatNumber(item['理論在庫数'])}</td>
+            <td><input type="number" id="confirmed-${index}" value="${item['確定実在庫数'] || ''}" 
+                       class="w-full px-2 py-1 border border-gray-300 rounded" min="0"></td>
+            <td><span id="diff-${index}">${discrepancy ? formatNumber(discrepancy) : ''}</span></td>
+            <td><input type="text" id="reason-${index}" value="${item['差異理由'] || ''}" 
+                       class="w-full px-2 py-1 border border-gray-300 rounded" placeholder="理由を入力"></td>
+          `;
+          tbody.appendChild(tr);
+          
+          // 確定実在庫数の入力時に差異を自動計算
+          document.getElementById(`confirmed-${index}`).addEventListener('input', function() {
+            const confirmed = parseInt(this.value) || 0;
+            const theoretical = item['理論在庫数'];
+            const diff = confirmed - theoretical;
+            document.getElementById(`diff-${index}`).textContent = formatNumber(diff);
+          });
+        });
+      }
+      
+      document.getElementById('details-area').classList.remove('hidden');
+    }
+    
+    function finalizeInventory() {
+      if (!confirmAction('棚卸を確定しますか？確定後は在庫が更新されます。')) {
+        return;
+      }
+      
+      const inventoryId = document.getElementById('inventory-event').value;
+      if (!inventoryId) {
+        showError('棚卸イベントを選択してください');
+        return;
+      }
+      
+      hideMessages();
+      
+      // 入力値を収集
+      const details = currentDetails.map((item, index) => {
+        const confirmedCount = document.getElementById(`confirmed-${index}`).value;
+        const discrepancyReason = document.getElementById(`reason-${index}`).value;
+        
+        if (!confirmedCount || confirmedCount === '') {
+          return null;
+        }
+        
+        return {
+          detailId: item['棚卸明細ID'],
+          productId: item['製品ID'],
+          locationId: item['保管場所ID'],
+          theoreticalStock: item['理論在庫数'],
+          confirmedCount: parseInt(confirmedCount),
+          discrepancyReason: discrepancyReason
+        };
+      }).filter(d => d !== null);
+      
+      if (details.length === 0) {
+        showError('確定実在庫数が入力されていません');
+        return;
+      }
+      
+      showLoading();
+      google.script.run
+        .withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showSuccess(`${result.message} (在庫更新: ${result.updatedStocks}件、調整ログ: ${result.adjustmentHistories}件)`);
+            loadActiveInventoryEvents();
+            document.getElementById('details-area').classList.add('hidden');
+          } else {
+            showError(result.error);
+          }
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          showError('確定に失敗しました: ' + error.message);
+        })
+        .finalizeInventory(inventoryId, details);
+    }
+  </script>
+</body>
+</html>

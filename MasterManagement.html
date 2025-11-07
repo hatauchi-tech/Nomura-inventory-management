@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>マスタ管理</title>
+  <?!= include('Common'); ?>
+</head>
+<body class="bg-gray-100">
+  <header class="bg-white shadow-md">
+    <div class="container mx-auto px-4 py-4">
+      <div class="flex items-center justify-between">
+        <h1 class="text-xl font-bold text-gray-900">在庫管理システム</h1>
+        <button onclick="goHome()" 
+                class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+          ホームに戻る
+        </button>
+      </div>
+    </div>
+  </header>
+  
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900">マスタ管理</h1>
+    </div>
+    
+    <!-- タブ選択 -->
+    <div class="bg-white rounded-lg shadow-md mb-6">
+      <div class="flex border-b border-gray-200">
+        <button onclick="switchTab('products')" id="tab-products"
+                class="flex-1 py-4 px-6 text-center font-semibold border-b-2 border-blue-600 text-blue-600">
+          製品マスタ
+        </button>
+        <button onclick="switchTab('users')" id="tab-users"
+                class="flex-1 py-4 px-6 text-center font-semibold border-b-2 border-transparent text-gray-600 hover:text-gray-900">
+          ユーザーマスタ
+        </button>
+        <button onclick="switchTab('locations')" id="tab-locations"
+                class="flex-1 py-4 px-6 text-center font-semibold border-b-2 border-transparent text-gray-600 hover:text-gray-900">
+          保管場所マスタ
+        </button>
+      </div>
+    </div>
+    
+    <!-- メッセージ表示エリア -->
+    <div id="error-message" class="hidden bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+      <p class="text-sm text-red-700"></p>
+    </div>
+    
+    <div id="success-message" class="hidden bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+      <p class="text-sm text-green-700"></p>
+    </div>
+    
+    <!-- 製品マスタ -->
+    <div id="content-products" class="bg-white rounded-lg shadow-md p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-semibold text-gray-900">製品一覧</h2>
+        <button onclick="showProductForm()" 
+                class="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700">
+          新規登録
+        </button>
+      </div>
+      <div id="products-list" class="table-container">
+        <p class="text-center text-gray-500 py-4">読み込み中...</p>
+      </div>
+    </div>
+    
+    <!-- ユーザーマスタ -->
+    <div id="content-users" class="hidden bg-white rounded-lg shadow-md p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-semibold text-gray-900">ユーザー一覧</h2>
+        <button onclick="showUserForm()" 
+                class="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700">
+          新規登録
+        </button>
+      </div>
+      <div id="users-list" class="table-container">
+        <p class="text-center text-gray-500 py-4">読み込み中...</p>
+      </div>
+    </div>
+    
+    <!-- 保管場所マスタ -->
+    <div id="content-locations" class="hidden bg-white rounded-lg shadow-md p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-semibold text-gray-900">保管場所一覧</h2>
+        <button onclick="showLocationForm()" 
+                class="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700">
+          新規登録
+        </button>
+      </div>
+      <div id="locations-list" class="table-container">
+        <p class="text-center text-gray-500 py-4">読み込み中...</p>
+      </div>
+    </div>
+  </div>
+  
+  <!-- モーダルダイアログ -->
+  <div id="modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full mx-4 max-h-screen overflow-y-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h3 id="modal-title" class="text-xl font-semibold text-gray-900"></h3>
+        <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div id="modal-content"></div>
+    </div>
+  </div>
+
+  <script>
+    let currentTab = 'products';
+    
+    window.addEventListener('load', function() {
+      loadProducts();
+    });
+    
+    function switchTab(tab) {
+      currentTab = tab;
+      
+      // タブボタンのスタイル更新
+      ['products', 'users', 'locations'].forEach(t => {
+        const tabBtn = document.getElementById('tab-' + t);
+        const content = document.getElementById('content-' + t);
+        
+        if (t === tab) {
+          tabBtn.classList.add('border-blue-600', 'text-blue-600');
+          tabBtn.classList.remove('border-transparent', 'text-gray-600');
+          content.classList.remove('hidden');
+        } else {
+          tabBtn.classList.remove('border-blue-600', 'text-blue-600');
+          tabBtn.classList.add('border-transparent', 'text-gray-600');
+          content.classList.add('hidden');
+        }
+      });
+      
+      hideMessages();
+      
+      // データ読み込み
+      if (tab === 'products') loadProducts();
+      else if (tab === 'users') loadUsers();
+      else if (tab === 'locations') loadLocations();
+    }
+    
+    // === 製品マスタ ===
+    function loadProducts() {
+      google.script.run
+        .withSuccessHandler(function(data) {
+          displayProducts(data);
+        })
+        .withFailureHandler(showError)
+        .getAllProducts();
+    }
+    
+    function displayProducts(data) {
+      const container = document.getElementById('products-list');
+      if (data.length === 0) {
+        container.innerHTML = '<p class="text-center text-gray-500 py-4">データがありません</p>';
+        return;
+      }
+      
+      container.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>製品ID</th>
+              <th>製品名</th>
+              <th>カテゴリ1</th>
+              <th>カテゴリ2</th>
+              <th>単価</th>
+              <th>有効</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.map(item => `
+              <tr>
+                <td>${item['製品ID']}</td>
+                <td>${item['製品名']}</td>
+                <td>${item['カテゴリ1']}</td>
+                <td>${item['カテゴリ2']}</td>
+                <td>¥${formatNumber(item['単価'])}</td>
+                <td>${item['有効'] ? '✓' : '✗'}</td>
+                <td>
+                  <button onclick='editProduct(${JSON.stringify(item)})' 
+                          class="text-blue-600 hover:text-blue-800 mr-2">編集</button>
+                  <button onclick="deleteProduct('${item['製品ID']}')" 
+                          class="text-red-600 hover:text-red-800">削除</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+    
+    function showProductForm(product = null) {
+      const isEdit = product !== null;
+      document.getElementById('modal-title').textContent = isEdit ? '製品編集' : '製品登録';
+      document.getElementById('modal-content').innerHTML = `
+        <form id="product-form" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">製品ID <span class="text-red-500">*</span></label>
+            <input type="text" name="製品ID" value="${product ? product['製品ID'] : ''}" required
+                   ${isEdit ? 'readonly' : ''}
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md ${isEdit ? 'bg-gray-100' : ''}">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">製品名 <span class="text-red-500">*</span></label>
+            <input type="text" name="製品名" value="${product ? product['製品名'] : ''}" required
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">カテゴリ1 <span class="text-red-500">*</span></label>
+            <input type="text" name="カテゴリ1" value="${product ? product['カテゴリ1'] : ''}" required
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">カテゴリ2 <span class="text-red-500">*</span></label>
+            <input type="text" name="カテゴリ2" value="${product ? product['カテゴリ2'] : ''}" required
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">単価</label>
+            <input type="number" name="単価" value="${product ? product['単価'] : 0}" min="0"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md">
+          </div>
+          <div>
+            <label class="flex items-center">
+              <input type="checkbox" name="有効" ${!product || product['有効'] ? 'checked' : ''} class="mr-2">
+              <span class="text-sm font-medium text-gray-700">有効</span>
+            </label>
+          </div>
+          <div class="flex space-x-4">
+            <button type="submit" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
+              ${isEdit ? '更新' : '登録'}
+            </button>
+            <button type="button" onclick="closeModal()" 
+                    class="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400">
+              キャンセル
+            </button>
+          </div>
+        </form>
+      `;
+      
+      document.getElementById('product-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const data = {
+          '製品ID': formData.get('製品ID'),
+          '製品名': formData.get('製品名'),
+          'カテゴリ1': formData.get('カテゴリ1'),
+          'カテゴリ2': formData.get('カテゴリ2'),
+          '単価': formData.get('単価'),
+          '有効': formData.get('有効') ? true : false
+        };
+        
+        showLoading();
+        if (isEdit) {
+          google.script.run
+            .withSuccessHandler(handleMasterResult)
+            .withFailureHandler(handleMasterError)
+            .updateProduct(data['製品ID'], data);
+        } else {
+          google.script.run
+            .withSuccessHandler(handleMasterResult)
+            .withFailureHandler(handleMasterError)
+            .createProduct(data);
+        }
+      });
+      
+      document.getElementById('modal').classList.remove('hidden');
+    }
+    
+    function editProduct(product) {
+      showProductForm(product);
+    }
+    
+    function deleteProduct(productId) {
+      if (!confirmAction('この製品を無効化しますか？')) return;
+      
+      showLoading();
+      google.script.run
+        .withSuccessHandler(handleMasterResult)
+        .withFailureHandler(handleMasterError)
+        .deleteProduct(productId);
+    }
+    
+    // === ユーザーマスタ ===
+    function loadUsers() {
+      google.script.run
+        .withSuccessHandler(function(data) {
+          displayUsers(data);
+        })
+        .withFailureHandler(showError)
+        .getAllUsers();
+    }
+    
+    function displayUsers(data) {
+      const container = document.getElementById('users-list');
+      if (data.length === 0) {
+        container.innerHTML = '<p class="text-center text-gray-500 py-4">データがありません</p>';
+        return;
+      }
+      
+      container.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>ユーザーID</th>
+              <th>ユーザー名</th>
+              <th>部門</th>
+              <th>メールアドレス</th>
+              <th>権限</th>
+              <th>有効</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.map(item => `
+              <tr>
+                <td>${item['ユーザーID']}</td>
+                <td>${item['ユーザー名']}</td>
+                <td>${item['部門']}</td>
+                <td>${item['メールアドレス']}</td>
+                <td>${item['権限']}</td>
+                <td>${item['有効'] ? '✓' : '✗'}</td>
+                <td>
+                  <button onclick='editUser(${JSON.stringify(item)})' 
+                          class="text-blue-600 hover:text-blue-800 mr-2">編集</button>
+                  <button onclick="deleteUser('${item['ユーザーID']}')" 
+                          class="text-red-600 hover:text-red-800">無効化</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+    
+    function showUserForm(user = null) {
+      const isEdit = user !== null;
+      document.getElementById('modal-title').textContent = isEdit ? 'ユーザー編集' : 'ユーザー登録';
+      document.getElementById('modal-content').innerHTML = `
+        <form id="user-form" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">ユーザーID <span class="text-red-500">*</span></label>
+            <input type="text" name="ユーザーID" value="${user ? user['ユーザーID'] : ''}" required
+                   ${isEdit ? 'readonly' : ''}
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md ${isEdit ? 'bg-gray-100' : ''}">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">ユーザー名 <span class="text-red-500">*</span></label>
+            <input type="text" name="ユーザー名" value="${user ? user['ユーザー名'] : ''}" required
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">部門</label>
+            <input type="text" name="部門" value="${user ? user['部門'] : ''}"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">メールアドレス <span class="text-red-500">*</span></label>
+            <input type="email" name="メールアドレス" value="${user ? user['メールアドレス'] : ''}" required
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">権限 <span class="text-red-500">*</span></label>
+            <select name="権限" required class="w-full px-3 py-2 border border-gray-300 rounded-md">
+              <option value="管理者" ${user && user['権限'] === '管理者' ? 'selected' : ''}>管理者</option>
+              <option value="現場担当" ${user && user['権限'] === '現場担当' ? 'selected' : ''}>現場担当</option>
+            </select>
+          </div>
+          <div>
+            <label class="flex items-center">
+              <input type="checkbox" name="有効" ${!user || user['有効'] ? 'checked' : ''} class="mr-2">
+              <span class="text-sm font-medium text-gray-700">有効</span>
+            </label>
+          </div>
+          <div class="flex space-x-4">
+            <button type="submit" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
+              ${isEdit ? '更新' : '登録'}
+            </button>
+            <button type="button" onclick="closeModal()" 
+                    class="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400">
+              キャンセル
+            </button>
+          </div>
+        </form>
+      `;
+      
+      document.getElementById('user-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const data = {
+          'ユーザーID': formData.get('ユーザーID'),
+          'ユーザー名': formData.get('ユーザー名'),
+          '部門': formData.get('部門'),
+          'メールアドレス': formData.get('メールアドレス'),
+          '権限': formData.get('権限'),
+          '有効': formData.get('有効') ? true : false
+        };
+        
+        showLoading();
+        if (isEdit) {
+          google.script.run
+            .withSuccessHandler(handleMasterResult)
+            .withFailureHandler(handleMasterError)
+            .updateUser(data['ユーザーID'], data);
+        } else {
+          google.script.run
+            .withSuccessHandler(handleMasterResult)
+            .withFailureHandler(handleMasterError)
+            .createUser(data);
+        }
+      });
+      
+      document.getElementById('modal').classList.remove('hidden');
+    }
+    
+    function editUser(user) {
+      showUserForm(user);
+    }
+    
+    function deleteUser(userId) {
+      if (!confirmAction('このユーザーを無効化しますか？')) return;
+      
+      showLoading();
+      google.script.run
+        .withSuccessHandler(handleMasterResult)
+        .withFailureHandler(handleMasterError)
+        .deleteUser(userId);
+    }
+    
+    // === 保管場所マスタ ===
+    function loadLocations() {
+      google.script.run
+        .withSuccessHandler(function(data) {
+          displayLocations(data);
+        })
+        .withFailureHandler(showError)
+        .getAllLocations();
+    }
+    
+    function displayLocations(data) {
+      const container = document.getElementById('locations-list');
+      if (data.length === 0) {
+        container.innerHTML = '<p class="text-center text-gray-500 py-4">データがありません</p>';
+        return;
+      }
+      
+      container.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>保管場所ID</th>
+              <th>場所名</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.map(item => `
+              <tr>
+                <td>${item['保管場所ID']}</td>
+                <td>${item['場所名']}</td>
+                <td>
+                  <button onclick='editLocation(${JSON.stringify(item)})' 
+                          class="text-blue-600 hover:text-blue-800 mr-2">編集</button>
+                  <button onclick="deleteLocation('${item['保管場所ID']}')" 
+                          class="text-red-600 hover:text-red-800">削除</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+    
+    function showLocationForm(location = null) {
+      const isEdit = location !== null;
+      document.getElementById('modal-title').textContent = isEdit ? '保管場所編集' : '保管場所登録';
+      document.getElementById('modal-content').innerHTML = `
+        <form id="location-form" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">保管場所ID <span class="text-red-500">*</span></label>
+            <input type="text" name="保管場所ID" value="${location ? location['保管場所ID'] : ''}" required
+                   ${isEdit ? 'readonly' : ''}
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md ${isEdit ? 'bg-gray-100' : ''}">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">場所名 <span class="text-red-500">*</span></label>
+            <input type="text" name="場所名" value="${location ? location['場所名'] : ''}" required
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md">
+          </div>
+          <div class="flex space-x-4">
+            <button type="submit" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
+              ${isEdit ? '更新' : '登録'}
+            </button>
+            <button type="button" onclick="closeModal()" 
+                    class="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400">
+              キャンセル
+            </button>
+          </div>
+        </form>
+      `;
+      
+      document.getElementById('location-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const data = {
+          '保管場所ID': formData.get('保管場所ID'),
+          '場所名': formData.get('場所名')
+        };
+        
+        showLoading();
+        if (isEdit) {
+          google.script.run
+            .withSuccessHandler(handleMasterResult)
+            .withFailureHandler(handleMasterError)
+            .updateLocation(data['保管場所ID'], data);
+        } else {
+          google.script.run
+            .withSuccessHandler(handleMasterResult)
+            .withFailureHandler(handleMasterError)
+            .createLocation(data);
+        }
+      });
+      
+      document.getElementById('modal').classList.remove('hidden');
+    }
+    
+    function editLocation(location) {
+      showLocationForm(location);
+    }
+    
+    function deleteLocation(locationId) {
+      if (!confirmAction('この保管場所を削除しますか？\n※在庫データで使用中の場合は削除できません')) return;
+      
+      showLoading();
+      google.script.run
+        .withSuccessHandler(handleMasterResult)
+        .withFailureHandler(handleMasterError)
+        .deleteLocation(locationId);
+    }
+    
+    // === 共通処理 ===
+    function closeModal() {
+      document.getElementById('modal').classList.add('hidden');
+    }
+    
+    function handleMasterResult(result) {
+      hideLoading();
+      closeModal();
+      if (result.success) {
+        showSuccess(result.message);
+        if (currentTab === 'products') loadProducts();
+        else if (currentTab === 'users') loadUsers();
+        else if (currentTab === 'locations') loadLocations();
+      } else {
+        showError(result.error);
+      }
+    }
+    
+    function handleMasterError(error) {
+      hideLoading();
+      closeModal();
+      showError('エラーが発生しました: ' + error.message);
+    }
+  </script>
+</body>
+</html>

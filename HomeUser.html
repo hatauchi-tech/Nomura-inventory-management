@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>在庫管理システム - 現場担当者ホーム</title>
+  <?!= include('Common'); ?>
+</head>
+<body class="bg-gray-100">
+  <header class="bg-white shadow-md">
+    <div class="container mx-auto px-4 py-4">
+      <div class="flex items-center justify-between">
+        <h1 class="text-xl font-bold text-gray-900">在庫管理システム</h1>
+        <button onclick="goHome()" 
+                class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+          ホームに戻る
+        </button>
+      </div>
+    </div>
+  </header>
+  
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900">ホーム</h1>
+      <p class="mt-2 text-gray-600">ようこそ、<?= userName ?>さん（<?= userRole ?>）</p>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <a href="#" onclick="navigateTo('stock-movement'); return false;" 
+         class="block bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6">
+        <div class="flex items-center mb-4">
+          <div class="bg-blue-500 rounded-lg p-3">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                    d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+          </div>
+        </div>
+        <h2 class="text-xl font-semibold text-gray-900 mb-2">入出庫登録</h2>
+        <p class="text-gray-600">製品の入庫・出庫を記録します</p>
+      </a>
+      
+      <a href="#" onclick="navigateTo('inventory-count'); return false;" 
+         class="block bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6">
+        <div class="flex items-center mb-4">
+          <div class="bg-green-500 rounded-lg p-3">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+          </div>
+        </div>
+        <h2 class="text-xl font-semibold text-gray-900 mb-2">棚卸カウント入力</h2>
+        <p class="text-gray-600">実在庫をカウントして入力します</p>
+      </a>
+      
+      <a href="#" onclick="navigateTo('stock-list'); return false;" 
+         class="block bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6">
+        <div class="flex items-center mb-4">
+          <div class="bg-yellow-500 rounded-lg p-3">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+        </div>
+        <h2 class="text-xl font-semibold text-gray-900 mb-2">在庫一覧・検索</h2>
+        <p class="text-gray-600">現在の在庫状況を確認します</p>
+      </a>
+    </div>
+  </div>
+</body>
+</html>

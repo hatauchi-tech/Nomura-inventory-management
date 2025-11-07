@@ -1,0 +1,149 @@
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  .table-container { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+  th { background-color: #f9fafb; font-weight: 600; color: #374151; }
+  tr:hover { background-color: #f9fafb; }
+  
+  @media (max-width: 640px) {
+    th, td { padding: 8px; font-size: 14px; }
+  }
+</style>
+
+<script>
+  // ベースURL（デプロイ後に自動取得）
+  let baseUrl = '';
+  
+  // 初期化時にベースURLを取得
+  window.addEventListener('load', function() {
+    google.script.run
+      .withSuccessHandler(function(url) {
+        baseUrl = url;
+      })
+      .getScriptUrl();
+  });
+  
+  // 共通関数
+  function formatDateTime(date) {
+    if (!date) return '';
+    const d = new Date(date);
+    return d.toLocaleString('ja-JP');
+  }
+  
+  function formatNumber(num) {
+    return Number(num).toLocaleString('ja-JP');
+  }
+  
+  function showLoading() {
+    const loading = document.createElement('div');
+    loading.id = 'loading-overlay';
+    loading.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    loading.innerHTML = `
+      <div class="bg-white rounded-lg p-6">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <p class="mt-4 text-gray-700">処理中...</p>
+      </div>
+    `;
+    document.body.appendChild(loading);
+  }
+  
+  function hideLoading() {
+    const loading = document.getElementById('loading-overlay');
+    if (loading) loading.remove();
+  }
+  
+  function confirmAction(message) {
+    return confirm(message);
+  }
+  
+  function showError(message) {
+    const errorDiv = document.getElementById('error-message');
+    if (errorDiv) {
+      errorDiv.querySelector('p').textContent = message;
+      errorDiv.classList.remove('hidden');
+      // 自動スクロール
+      errorDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      alert('エラー: ' + message);
+    }
+  }
+  
+  function showSuccess(message) {
+    const successDiv = document.getElementById('success-message');
+    if (successDiv) {
+      successDiv.querySelector('p').textContent = message;
+      successDiv.classList.remove('hidden');
+      // 自動スクロール
+      successDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      alert(message);
+    }
+  }
+  
+  function hideMessages() {
+    const errorDiv = document.getElementById('error-message');
+    const successDiv = document.getElementById('success-message');
+    if (errorDiv) errorDiv.classList.add('hidden');
+    if (successDiv) successDiv.classList.add('hidden');
+  }
+  
+  /**
+   * ページ遷移関数
+   * @param {string} pageName - 遷移先のページ名
+   */
+  function navigateTo(pageName) {
+    // ベースURLが取得できていない場合は、相対パスで遷移
+    if (baseUrl) {
+      window.top.location.href = baseUrl + '?page=' + pageName;
+    } else {
+      // フォールバック: ベースURLを再取得して遷移
+      google.script.run
+        .withSuccessHandler(function(url) {
+          window.top.location.href = url + '?page=' + pageName;
+        })
+        .withFailureHandler(function(error) {
+          alert('ページ遷移に失敗しました: ' + error.message);
+        })
+        .getScriptUrl();
+    }
+  }
+  
+  /**
+   * ホームに戻る
+   */
+  function goHome() {
+    navigateTo('home');
+  }
+  
+  // バリデーション関数
+  function validateRequired(value, fieldName) {
+    if (!value || value.trim() === '') {
+      return `${fieldName}は必須項目です`;
+    }
+    return null;
+  }
+  
+  function validateNumber(value, fieldName, min, max) {
+    const num = Number(value);
+    if (isNaN(num)) return `${fieldName}は数値を入力してください`;
+    if (min !== undefined && num < min) return `${fieldName}は${min}以上を入力してください`;
+    if (max !== undefined && num > max) return `${fieldName}は${max}以下を入力してください`;
+    return null;
+  }
+  
+  function validateEmail(value) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(value)) return 'メールアドレスの形式が正しくありません';
+    return null;
+  }
+</script>

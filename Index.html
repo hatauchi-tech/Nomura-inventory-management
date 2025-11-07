@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>在庫管理システム - ログイン</title>
+  <?!= include('Common'); ?>
+</head>
+<body class="bg-gray-100">
+  <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full space-y-8">
+      <div>
+        <h1 class="text-center text-3xl font-extrabold text-gray-900">在庫管理システム</h1>
+        <p class="mt-2 text-center text-sm text-gray-600">Googleアカウントでログインしてください</p>
+      </div>
+      
+      <div id="login-status" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <p class="text-center text-blue-700">認証情報を確認中...</p>
+      </div>
+      
+      <div id="error-message" class="hidden bg-red-50 border border-red-200 rounded-lg p-4">
+        <p class="text-center text-red-700"></p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    window.addEventListener('load', function() {
+      google.script.run
+        .withSuccessHandler(handleUserCheck)
+        .withFailureHandler(handleError)
+        .getCurrentUser();
+    });
+    
+    function handleUserCheck(user) {
+      if (user && user.valid) {
+        // ユーザーが有効な場合、ホーム画面にリダイレクト
+        goHome();
+      } else if (user && !user.valid) {
+        showError('アカウントが無効になっています。管理者にお問い合わせください。');
+      } else {
+        showError('ログインに失敗しました。M_ユーザーテーブルに登録されていません。');
+      }
+    }
+    
+    function handleError(error) {
+      showError('エラーが発生しました: ' + error.message);
+    }
+  </script>
+</body>
+</html>
