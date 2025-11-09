@@ -962,25 +962,26 @@ function searchStocks(query) {
       
       return allStocks.filter(stock => {
         let match = true;
-        
+
         // (削除) productIdのフィルター処理を削除
         // if (query.productId) {
         //   match = match && stock['製品ID'].indexOf(query.productId) !== -1;
         // }
-        
+
         if (query.productName) {
           // 製品名（部分一致）
-          match = match && stock['製品名'].indexOf(query.productName) !== -1;
+          const productName = stock['製品名'] || '';
+          match = match && productName.indexOf(query.productName) !== -1;
         }
         if (query.category1) {
           // カテゴリ1（完全一致）
-          match = match && stock['カテゴリ1'] === query.category1;
+          match = match && (stock['カテゴリ1'] || '') === query.category1;
         }
         if (query.category2) {
           // カテゴリ2（完全一致）
-          match = match && stock['カテゴリ2'] === query.category2;
+          match = match && (stock['カテゴリ2'] || '') === query.category2;
         }
-        
+
         return match;
       });
     } catch (error) {
