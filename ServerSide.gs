@@ -924,10 +924,28 @@ function getAllStocks() {
       const stocks = getSheetData(stockSheet);
       const products = getSheetData(productSheet);
       const locations = getSheetData(locationSheet);
-      
-      return stocks.map(stock => {
-        const product = products.find(p => p['製品ID'] === stock['製品ID']);
-        const location = locations.find(l => l['保管場所ID'] === stock['保管場所ID']);
+
+      // デバッグログ追加
+      Logger.log('getAllStocks: stocks count = ' + stocks.length);
+      Logger.log('getAllStocks: products count = ' + products.length);
+      Logger.log('getAllStocks: locations count = ' + locations.length);
+
+      const result = stocks.map(stock => {
+        // 型を文字列に統一して比較
+        const stockProductId = String(stock['製品ID']);
+        const stockLocationId = String(stock['保管場所ID']);
+
+        const product = products.find(p => String(p['製品ID']) === stockProductId);
+        const location = locations.find(l => String(l['保管場所ID']) === stockLocationId);
+
+        // デバッグ: マッチングできなかった場合のログ
+        if (!product) {
+          Logger.log('getAllStocks: 製品が見つかりません - 製品ID: ' + stockProductId);
+        }
+        if (!location) {
+          Logger.log('getAllStocks: 保管場所が見つかりません - 保管場所ID: ' + stockLocationId);
+        }
+
         return {
           在庫ID: stock['在庫ID'],
           製品ID: stock['製品ID'],
@@ -940,6 +958,9 @@ function getAllStocks() {
           最終更新日時: stock['最終更新日時']
         };
       });
+
+      Logger.log('getAllStocks: result count = ' + result.length);
+      return result;
     } catch (error) {
       Logger.log('getAllStocks Error: ' + error.toString());
       throw new Error('在庫データの取得に失敗しました: ' + error.message);
