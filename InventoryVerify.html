@@ -116,7 +116,7 @@
           data.forEach(event => {
             const option = document.createElement('option');
             option.value = event['棚卸ID'];
-            option.textContent = `${event['棚卸ID']} (${formatDateTime(event['棚卸実施日'])}) - ${event['ステータス']}`;
+            option.textContent = `${event['イベント名']} (${event['棚卸実施日']}) - ${event['ステータス']}`;
             select.appendChild(option);
           });
         })

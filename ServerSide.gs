@@ -524,6 +524,7 @@ function createInventoryEvent(eventName) {
       const inventoryId = generateUniqueId('I');
       const historyData = {
         '棚卸ID': inventoryId,
+        'イベント名': eventName,
         '棚卸実施日': getCurrentDateTime(),
         'ステータス': '実施中',
         '担当ユーザーID': user.userId
@@ -584,7 +585,15 @@ function getActiveInventoryEvents() {
       }
       
       const data = getSheetData(sheet);
-      return data.filter(row => row['ステータス'] === '実施中' || row['ステータス'] === '照合中');
+      return data
+        .filter(row => row['ステータス'] === '実施中' || row['ステータス'] === '照合中')
+        .map(row => ({
+          棚卸ID: String(row['棚卸ID'] || ''),
+          イベント名: String(row['イベント名'] || ''),
+          棚卸実施日: row['棚卸実施日'] ? formatDateTime(row['棚卸実施日']) : '',
+          ステータス: String(row['ステータス'] || ''),
+          担当ユーザーID: String(row['担当ユーザーID'] || '')
+        }));
     } catch (error) {
       Logger.log('getActiveInventoryEvents Error: ' + error.toString());
       throw new Error('棚卸イベントの取得に失敗しました: ' + error.message);
