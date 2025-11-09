@@ -155,8 +155,8 @@
     
     function displayAllStocks(data) {
       const content = document.getElementById('result-content');
-      
-      if (data.length === 0) {
+
+      if (!data || !Array.isArray(data) || data.length === 0) {
         content.innerHTML = '<p class="text-gray-500 text-center py-8">在庫データがありません</p>';
         return;
       }
@@ -211,8 +211,8 @@
     
     function displayStocksByProduct(data) {
       const content = document.getElementById('result-content');
-      
-      if (data.length === 0) {
+
+      if (!data || !Array.isArray(data) || data.length === 0) {
         content.innerHTML = '<p class="text-gray-500 text-center py-8">在庫データがありません</p>';
         return;
       }
@@ -266,8 +266,8 @@
     
     function displayStocksByLocation(data) {
       const content = document.getElementById('result-content');
-      
-      if (data.length === 0) {
+
+      if (!data || !Array.isArray(data) || data.length === 0) {
         content.innerHTML = '<p class="text-gray-500 text-center py-8">在庫データがありません</p>';
         return;
       }
