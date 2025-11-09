@@ -11,148 +11,170 @@
     <div class="container mx-auto px-4 py-4">
       <div class="flex items-center justify-between">
         <h1 class="text-xl font-bold text-gray-900">在庫管理システム</h1>
-        <button onclick="goHome()" 
+        <button onclick="goHome()"
                 class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
           ホームに戻る
         </button>
       </div>
     </div>
   </header>
-  
+
   <div class="container mx-auto px-4 py-8">
     <div class="mb-8">
-      <h1 class="text-3xl font-bold text-gray-900">棚卸カウント入力</h1>
+      <h1 class="text-3xl font-bold text-gray-900">棚卸カウント入力（一括登録）</h1>
     </div>
-    
-    <div class="bg-white rounded-lg shadow-md p-6 max-w-2xl mx-auto">
-      <form id="inventory-count-form" class="space-y-6">
+
+    <!-- 絞り込み条件 -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+      <h2 class="text-xl font-semibold text-gray-900 mb-4">絞り込み条件</h2>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <!-- 棚卸イベント選択 -->
         <div>
           <label for="inventory-event" class="block text-sm font-medium text-gray-700 mb-2">
             棚卸イベント <span class="text-red-500">*</span>
           </label>
-          <select id="inventory-event" name="inventoryId" required
+          <select id="inventory-event" required
                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="">選択してください</option>
           </select>
         </div>
-        
+
         <!-- 保管場所選択 -->
         <div>
           <label for="location" class="block text-sm font-medium text-gray-700 mb-2">
             保管場所 <span class="text-red-500">*</span>
           </label>
-          <select id="location" name="locationId" required
+          <select id="location" required
                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="">選択してください</option>
           </select>
         </div>
-        
+
         <!-- カテゴリ1 -->
         <div>
           <label for="category1" class="block text-sm font-medium text-gray-700 mb-2">
-            カテゴリ1（絞り込み）
+            カテゴリ1
           </label>
-          <select id="category1" name="category1"
+          <select id="category1"
                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="">すべて</option>
           </select>
         </div>
-        
+
         <!-- カテゴリ2 -->
         <div>
           <label for="category2" class="block text-sm font-medium text-gray-700 mb-2">
-            カテゴリ2（絞り込み）
+            カテゴリ2
           </label>
-          <select id="category2" name="category2"
+          <select id="category2"
                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="">すべて</option>
           </select>
         </div>
-        
-        <!-- 製品選択 -->
-        <div>
-          <label for="product" class="block text-sm font-medium text-gray-700 mb-2">
-            製品 <span class="text-red-500">*</span>
-          </label>
-          <select id="product" name="productId" required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="">選択してください</option>
-          </select>
-          <p class="mt-1 text-sm text-gray-500">カテゴリで絞り込んでから選択してください</p>
-        </div>
-        
-        <!-- カウント数入力 -->
-        <div>
-          <label for="count" class="block text-sm font-medium text-gray-700 mb-2">
-            カウント数 <span class="text-red-500">*</span>
-          </label>
-          <input type="number" id="count" name="count" required min="0"
-                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                 placeholder="カウント数を入力">
-        </div>
-        
-        <!-- メッセージ表示エリア -->
-        <div id="error-message" class="hidden bg-red-50 border border-red-200 rounded-lg p-4">
-          <p class="text-sm text-red-700"></p>
-        </div>
-        
-        <div id="success-message" class="hidden bg-green-50 border border-green-200 rounded-lg p-4">
-          <p class="text-sm text-green-700"></p>
-        </div>
-        
-        <!-- ボタン -->
-        <div class="flex space-x-4">
-          <button type="submit"
-                  class="flex-1 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
-            登録
+      </div>
+
+      <div class="mt-4">
+        <button onclick="loadProducts()"
+                class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          製品一覧を表示
+        </button>
+      </div>
+    </div>
+
+    <!-- メッセージ表示エリア -->
+    <div id="error-message" class="hidden bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+      <p class="text-sm text-red-700"></p>
+    </div>
+
+    <div id="success-message" class="hidden bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+      <p class="text-sm text-green-700"></p>
+    </div>
+
+    <!-- 製品一覧＆カウント入力エリア -->
+    <div id="products-area" class="hidden bg-white rounded-lg shadow-md p-6 mb-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-semibold text-gray-900">製品一覧</h2>
+        <div class="flex space-x-2">
+          <button onclick="clearAllCounts()"
+                  class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400">
+            クリア
           </button>
-          <button type="button" onclick="showMyCounts()"
-                  class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            自分の入力履歴
-          </button>
-          <button type="button" onclick="goHome()"
-                  class="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500">
-            戻る
+          <button onclick="batchRegister()"
+                  class="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 font-semibold">
+            一括登録
           </button>
         </div>
-      </form>
-      
-      <!-- 入力履歴表示エリア -->
-      <div id="history-area" class="mt-8 hidden">
-        <h2 class="text-xl font-semibold text-gray-900 mb-4">自分の入力履歴</h2>
-        <div class="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>製品ID</th>
-                <th>製品名</th>
-                <th>保管場所</th>
-                <th>カウント数</th>
-                <th>入力日時</th>
-              </tr>
-            </thead>
-            <tbody id="history-tbody">
-            </tbody>
-          </table>
-        </div>
+      </div>
+
+      <div class="mb-4 text-sm text-gray-600">
+        <p>※ カウント数を入力した製品のみ登録されます</p>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 15%;">製品ID</th>
+              <th style="width: 30%;">製品名</th>
+              <th style="width: 15%;">カテゴリ1</th>
+              <th style="width: 15%;">カテゴリ2</th>
+              <th style="width: 25%;">カウント数</th>
+            </tr>
+          </thead>
+          <tbody id="products-tbody">
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mt-4">
+        <button onclick="batchRegister()"
+                class="w-full bg-green-600 text-white py-3 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 font-semibold">
+          一括登録
+        </button>
+      </div>
+    </div>
+
+    <!-- 入力履歴表示エリア -->
+    <div id="history-area" class="bg-white rounded-lg shadow-md p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-semibold text-gray-900">自分の入力履歴</h2>
+        <button onclick="showMyCounts()"
+                class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+          履歴を表示
+        </button>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>製品ID</th>
+              <th>製品名</th>
+              <th>保管場所</th>
+              <th>カウント数</th>
+              <th>入力日時</th>
+            </tr>
+          </thead>
+          <tbody id="history-tbody">
+            <tr><td colspan="5" class="text-center text-gray-500">「履歴を表示」ボタンをクリックしてください</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
 
   <script>
-    let products = [];
-    
+    let currentProducts = [];
+    let allProducts = [];
+
     window.addEventListener('load', function() {
       loadActiveInventoryEvents();
       loadLocations();
       loadCategory1List();
-      
+
       document.getElementById('category1').addEventListener('change', handleCategory1Change);
       document.getElementById('category2').addEventListener('change', handleCategory2Change);
-      document.getElementById('inventory-count-form').addEventListener('submit', handleSubmit);
     });
-    
+
     function loadActiveInventoryEvents() {
       google.script.run
         .withSuccessHandler(function(data) {
@@ -167,7 +189,7 @@
         .withFailureHandler(showError)
         .getActiveInventoryEvents();
     }
-    
+
     function loadLocations() {
       google.script.run
         .withSuccessHandler(function(data) {
@@ -182,7 +204,7 @@
         .withFailureHandler(showError)
         .getStorageLocations();
     }
-    
+
     function loadCategory1List() {
       google.script.run
         .withSuccessHandler(function(data) {
@@ -197,13 +219,13 @@
         .withFailureHandler(showError)
         .getCategory1List();
     }
-    
+
     function handleCategory1Change() {
       const category1 = document.getElementById('category1').value;
       const category2Select = document.getElementById('category2');
-      
+
       category2Select.innerHTML = '<option value="">すべて</option>';
-      
+
       if (category1) {
         google.script.run
           .withSuccessHandler(function(data) {
@@ -217,53 +239,131 @@
           .withFailureHandler(showError)
           .getCategory2List(category1);
       }
-      loadProducts();
     }
-    
+
     function handleCategory2Change() {
-      loadProducts();
+      // カテゴリ2変更時は自動的には読み込まない
+      // ユーザーが「製品一覧を表示」ボタンを押すまで待つ
     }
-    
+
     function loadProducts() {
+      const inventoryId = document.getElementById('inventory-event').value;
+      const locationId = document.getElementById('location').value;
+
+      if (!inventoryId) {
+        showError('棚卸イベントを選択してください');
+        return;
+      }
+      if (!locationId) {
+        showError('保管場所を選択してください');
+        return;
+      }
+
+      hideMessages();
+
       const category1 = document.getElementById('category1').value;
       const category2 = document.getElementById('category2').value;
-      
+
+      showLoading();
       google.script.run
         .withSuccessHandler(function(data) {
-          products = data;
-          const select = document.getElementById('product');
-          select.innerHTML = '<option value="">選択してください</option>';
-          
-          data.forEach(prod => {
-            const option = document.createElement('option');
-            option.value = prod['製品ID'];
-            option.textContent = `${prod['製品ID']} - ${prod['製品名']}`;
-            select.appendChild(option);
-          });
+          hideLoading();
+          allProducts = data;
+          currentProducts = data;
+          displayProducts(data);
         })
-        .withFailureHandler(showError)
+        .withFailureHandler(function(error) {
+          hideLoading();
+          showError('製品の取得に失敗しました: ' + error.message);
+        })
         .getProductsByCategory(category1, category2);
     }
-    
-    function handleSubmit(e) {
-      e.preventDefault();
+
+    function displayProducts(products) {
+      const tbody = document.getElementById('products-tbody');
+      tbody.innerHTML = '';
+
+      if (products.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500">製品が見つかりません</td></tr>';
+      } else {
+        products.forEach((product, index) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${product['製品ID']}</td>
+            <td>${product['製品名']}</td>
+            <td>${product['カテゴリ1']}</td>
+            <td>${product['カテゴリ2']}</td>
+            <td>
+              <input type="number"
+                     id="count-${index}"
+                     data-product-id="${product['製品ID']}"
+                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                     min="0"
+                     placeholder="カウント数">
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      document.getElementById('products-area').classList.remove('hidden');
+    }
+
+    function clearAllCounts() {
+      currentProducts.forEach((product, index) => {
+        const input = document.getElementById(`count-${index}`);
+        if (input) {
+          input.value = '';
+        }
+      });
+    }
+
+    function batchRegister() {
+      const inventoryId = document.getElementById('inventory-event').value;
+      const locationId = document.getElementById('location').value;
+
+      if (!inventoryId || !locationId) {
+        showError('棚卸イベントと保管場所を選択してください');
+        return;
+      }
+
       hideMessages();
-      
-      const formData = new FormData(e.target);
-      const data = {
-        inventoryId: formData.get('inventoryId'),
-        locationId: formData.get('locationId'),
-        productId: formData.get('productId'),
-        count: formData.get('count')
-      };
-      
+
+      // 入力されたカウント数を収集
+      const dataList = [];
+      currentProducts.forEach((product, index) => {
+        const input = document.getElementById(`count-${index}`);
+        if (input && input.value && input.value.trim() !== '') {
+          const count = parseInt(input.value);
+          if (!isNaN(count) && count >= 0) {
+            dataList.push({
+              inventoryId: inventoryId,
+              locationId: locationId,
+              productId: product['製品ID'],
+              count: count
+            });
+          }
+        }
+      });
+
+      if (dataList.length === 0) {
+        showError('カウント数が入力されていません');
+        return;
+      }
+
+      if (!confirmAction(`${dataList.length}件の製品カウントを登録しますか？`)) {
+        return;
+      }
+
       showLoading();
       google.script.run
         .withSuccessHandler(function(result) {
           hideLoading();
           if (result.success) {
             showSuccess(result.message);
-            document.getElementById('count').value = '';
+            clearAllCounts();
+            // 履歴を自動的に表示
+            setTimeout(() => showMyCounts(), 1000);
           } else {
             showError(result.error);
           }
@@ -272,16 +372,16 @@
           hideLoading();
           showError('エラーが発生しました: ' + error.message);
         })
-        .registerInventoryCount(data);
+        .registerInventoryCountBatch(dataList);
     }
-    
+
     function showMyCounts() {
       const inventoryId = document.getElementById('inventory-event').value;
       if (!inventoryId) {
         showError('棚卸イベントを選択してください');
         return;
       }
-      
+
       showLoading();
       google.script.run
         .withSuccessHandler(function(data) {
@@ -294,16 +394,16 @@
         })
         .getMyInventoryCounts(inventoryId);
     }
-    
+
     function displayHistory(data) {
       const tbody = document.getElementById('history-tbody');
       tbody.innerHTML = '';
-      
+
       if (data.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500">データがありません</td></tr>';
       } else {
         data.forEach(item => {
-          const product = products.find(p => p['製品ID'] === item['製品ID']);
+          const product = allProducts.find(p => p['製品ID'] === item['製品ID']);
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td>${item['製品ID']}</td>
@@ -315,8 +415,6 @@
           tbody.appendChild(tr);
         });
       }
-      
-      document.getElementById('history-area').classList.remove('hidden');
     }
   </script>
 </body>

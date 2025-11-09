@@ -643,6 +643,84 @@ function registerInventoryCount(data) {
   });
 }
 
+function registerInventoryCountBatch(dataList) {
+  // ★★★ ロギングラッパーで囲む (新規) ★★★
+  return loggable('registerInventoryCountBatch', arguments, function() {
+    try {
+      const user = getCurrentUser();
+      if (!user || !user.valid) throw new Error('ログインが必要です');
+
+      if (!dataList || !Array.isArray(dataList) || dataList.length === 0) {
+        throw new Error('登録データがありません');
+      }
+
+      const ss = getSpreadsheet();
+      const inputSheet = ss.getSheetByName('T_棚卸担当者別入力');
+
+      if (!inputSheet) {
+        throw new Error('T_棚卸担当者別入力シートが見つかりません。スプレッドシートの設定を確認してください。');
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+      const errors = [];
+
+      dataList.forEach((data, index) => {
+        try {
+          // 必須項目チェック
+          const validation = validateRequiredFields(data, ['inventoryId', 'locationId', 'productId', 'count']);
+          if (!validation.valid) {
+            throw new Error(`行${index + 1}: ${validation.errors.join(', ')}`);
+          }
+
+          // 数値チェック
+          if (!validateNumber(data.count, 0)) {
+            throw new Error(`行${index + 1}: カウント数は0以上の数値を入力してください`);
+          }
+
+          // データ登録
+          const inputId = generateUniqueId('IC');
+          const inputData = {
+            '入力ID': inputId,
+            '棚卸ID': data.inventoryId,
+            '担当ユーザーID': user.userId,
+            '製品ID': data.productId,
+            '保管場所ID': data.locationId,
+            'カウント数': Number(data.count),
+            '入力日時': getCurrentDateTime()
+          };
+          appendRowToSheet(inputSheet, inputData);
+          successCount++;
+
+        } catch (error) {
+          errorCount++;
+          errors.push(error.toString());
+          Logger.log('registerInventoryCountBatch - Item Error: ' + error.toString());
+        }
+      });
+
+      if (errorCount > 0) {
+        return {
+          success: false,
+          error: `${successCount}件登録成功、${errorCount}件失敗\n${errors.slice(0, 5).join('\n')}`,
+          successCount: successCount,
+          errorCount: errorCount
+        };
+      }
+
+      return {
+        success: true,
+        message: `${successCount}件のカウントを一括登録しました`,
+        successCount: successCount
+      };
+
+    } catch (error) {
+      Logger.log('registerInventoryCountBatch Error: ' + error.toString());
+      return { success: false, error: error.toString() };
+    }
+  });
+}
+
 function getInventoryCountsByEvent(inventoryId) {
   // ★★★ ロギングラッパーで囲む (修正) ★★★
   return loggable('getInventoryCountsByEvent', arguments, function() {
