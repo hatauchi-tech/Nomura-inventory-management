@@ -40,6 +40,10 @@ function doGet(e) {
         htmlFile = 'StockMovement';
         pageTitle += ' - 入出庫登録';
         break;
+      case 'stock-movement-history':
+        htmlFile = 'StockMovementHistory';
+        pageTitle += ' - 入出庫履歴確認';
+        break;
       case 'inventory-count':
         htmlFile = 'InventoryCount';
         pageTitle += ' - 棚卸カウント入力';

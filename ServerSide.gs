@@ -502,6 +502,224 @@ function updateStock(productId, locationId, quantity, type) {
 }
 
 // ========================================
+// 入出庫履歴管理
+// ========================================
+
+function getMyStockMovements(filters) {
+  // ★★★ ロギングラッパーで囲む (新規) ★★★
+  return loggable('getMyStockMovements', arguments, function() {
+    try {
+      const user = getCurrentUser();
+      if (!user || !user.valid) throw new Error('ログインが必要です');
+
+      const ss = getSpreadsheet();
+      const historySheet = ss.getSheetByName('T_入出庫履歴');
+      const productSheet = ss.getSheetByName('M_製品');
+      const locationSheet = ss.getSheetByName('M_保管場所');
+
+      if (!historySheet) {
+        throw new Error('T_入出庫履歴シートが見つかりません。');
+      }
+      if (!productSheet) {
+        throw new Error('M_製品シートが見つかりません。');
+      }
+      if (!locationSheet) {
+        throw new Error('M_保管場所シートが見つかりません。');
+      }
+
+      const histories = getSheetData(historySheet);
+      const products = getSheetData(productSheet);
+      const locations = getSheetData(locationSheet);
+
+      // 自分の履歴のみフィルター
+      let myHistories = histories.filter(row => row['操作ユーザーID'] === user.userId);
+
+      // 絞り込み条件を適用
+      if (filters) {
+        if (filters.type && filters.type !== '') {
+          myHistories = myHistories.filter(row => row['入出庫タイプ'] === filters.type);
+        }
+        if (filters.locationId && filters.locationId !== '') {
+          myHistories = myHistories.filter(row => String(row['保管場所ID']) === String(filters.locationId));
+        }
+        if (filters.category1 && filters.category1 !== '') {
+          myHistories = myHistories.filter(row => {
+            const product = products.find(p => String(p['製品ID']) === String(row['製品ID']));
+            return product && product['カテゴリ1'] === filters.category1;
+          });
+        }
+        if (filters.category2 && filters.category2 !== '') {
+          myHistories = myHistories.filter(row => {
+            const product = products.find(p => String(p['製品ID']) === String(row['製品ID']));
+            return product && product['カテゴリ2'] === filters.category2;
+          });
+        }
+      }
+
+      // 製品名と場所名を追加
+      const result = myHistories.map(history => {
+        const product = products.find(p => String(p['製品ID']) === String(history['製品ID']));
+        const location = locations.find(l => String(l['保管場所ID']) === String(history['保管場所ID']));
+
+        return {
+          履歴ID: String(history['履歴ID'] || ''),
+          製品ID: String(history['製品ID'] || ''),
+          製品名: product ? String(product['製品名'] || '') : '',
+          カテゴリ1: product ? String(product['カテゴリ1'] || '') : '',
+          カテゴリ2: product ? String(product['カテゴリ2'] || '') : '',
+          数量: Number(history['数量'] || 0),
+          入出庫タイプ: String(history['入出庫タイプ'] || ''),
+          現場名: String(history['現場名'] || ''),
+          客先: String(history['客先'] || ''),
+          保管場所ID: String(history['保管場所ID'] || ''),
+          場所名: location ? String(location['場所名'] || '') : '',
+          発生日時: history['発生日時'] ? formatDateTime(history['発生日時']) : '',
+          操作ユーザーID: String(history['操作ユーザーID'] || '')
+        };
+      });
+
+      // 発生日時で降順ソート（新しい順）
+      result.sort((a, b) => {
+        if (a.発生日時 > b.発生日時) return -1;
+        if (a.発生日時 < b.発生日時) return 1;
+        return 0;
+      });
+
+      return result;
+
+    } catch (error) {
+      Logger.log('getMyStockMovements Error: ' + error.toString());
+      throw new Error('入出庫履歴の取得に失敗しました: ' + error.message);
+    }
+  });
+}
+
+function updateStockMovement(historyId, newData) {
+  // ★★★ ロギングラッパーで囲む (新規) ★★★
+  return loggable('updateStockMovement', arguments, function() {
+    try {
+      const user = getCurrentUser();
+      if (!user || !user.valid) throw new Error('ログインが必要です');
+
+      const ss = getSpreadsheet();
+      const historySheet = ss.getSheetByName('T_入出庫履歴');
+
+      if (!historySheet) {
+        throw new Error('T_入出庫履歴シートが見つかりません。');
+      }
+
+      // 既存の履歴を取得
+      const existingHistory = findRowByColumn(historySheet, '履歴ID', historyId);
+      if (!existingHistory) {
+        throw new Error('指定された履歴が見つかりません');
+      }
+
+      // 自分の履歴かチェック
+      if (existingHistory['操作ユーザーID'] !== user.userId) {
+        throw new Error('他のユーザーの履歴は編集できません');
+      }
+
+      // バリデーション
+      const validation = validateRequiredFields(newData, ['quantity']);
+      if (!validation.valid) throw new Error(validation.errors.join(', '));
+
+      if (!validateNumber(newData.quantity, 1)) {
+        throw new Error('数量は1以上の数値を入力してください');
+      }
+
+      const newQuantity = Number(newData.quantity);
+      const oldQuantity = Number(existingHistory['数量']);
+      const productId = existingHistory['製品ID'];
+      const locationId = existingHistory['保管場所ID'];
+      const movementType = existingHistory['入出庫タイプ'];
+
+      // 出庫の場合、在庫不足チェック
+      if (movementType === '出庫') {
+        const currentStock = getCurrentStock(productId, locationId);
+        const stockAfterRevert = currentStock + oldQuantity; // 旧数量を戻す
+        if (stockAfterRevert < newQuantity) {
+          throw new Error(`在庫不足: 現在在庫数${currentStock}に対して${newQuantity}の出庫はできません`);
+        }
+      }
+
+      // 在庫を調整（旧数量を戻して新数量を適用）
+      // 1. 旧数量を逆操作で戻す
+      const revertType = movementType === '入庫' ? '出庫' : '入庫';
+      updateStock(productId, locationId, oldQuantity, revertType);
+
+      // 2. 新数量を適用
+      updateStock(productId, locationId, newQuantity, movementType);
+
+      // 履歴を更新
+      const updatedHistory = {
+        '履歴ID': historyId,
+        '製品ID': productId,
+        '数量': newQuantity,
+        '入出庫タイプ': movementType,
+        '現場名': newData.siteName !== undefined ? newData.siteName : existingHistory['現場名'],
+        '客先': newData.customerName !== undefined ? newData.customerName : existingHistory['客先'],
+        '発生日時': existingHistory['発生日時'],
+        '操作ユーザーID': user.userId,
+        '保管場所ID': locationId
+      };
+      updateSheetRow(historySheet, existingHistory._rowIndex, updatedHistory);
+
+      return { success: true, message: '入出庫履歴を更新しました' };
+
+    } catch (error) {
+      Logger.log('updateStockMovement Error: ' + error.toString());
+      return { success: false, error: error.toString() };
+    }
+  });
+}
+
+function deleteStockMovement(historyId) {
+  // ★★★ ロギングラッパーで囲む (新規) ★★★
+  return loggable('deleteStockMovement', arguments, function() {
+    try {
+      const user = getCurrentUser();
+      if (!user || !user.valid) throw new Error('ログインが必要です');
+
+      const ss = getSpreadsheet();
+      const historySheet = ss.getSheetByName('T_入出庫履歴');
+
+      if (!historySheet) {
+        throw new Error('T_入出庫履歴シートが見つかりません。');
+      }
+
+      // 既存の履歴を取得
+      const existingHistory = findRowByColumn(historySheet, '履歴ID', historyId);
+      if (!existingHistory) {
+        throw new Error('指定された履歴が見つかりません');
+      }
+
+      // 自分の履歴かチェック
+      if (existingHistory['操作ユーザーID'] !== user.userId) {
+        throw new Error('他のユーザーの履歴は削除できません');
+      }
+
+      const quantity = Number(existingHistory['数量']);
+      const productId = existingHistory['製品ID'];
+      const locationId = existingHistory['保管場所ID'];
+      const movementType = existingHistory['入出庫タイプ'];
+
+      // 在庫を逆操作で戻す
+      const revertType = movementType === '入庫' ? '出庫' : '入庫';
+      updateStock(productId, locationId, quantity, revertType);
+
+      // 履歴を削除
+      historySheet.deleteRow(existingHistory._rowIndex);
+
+      return { success: true, message: '入出庫履歴を削除しました（在庫を元に戻しました）' };
+
+    } catch (error) {
+      Logger.log('deleteStockMovement Error: ' + error.toString());
+      return { success: false, error: error.toString() };
+    }
+  });
+}
+
+// ========================================
 // 棚卸管理
 // ========================================
 
