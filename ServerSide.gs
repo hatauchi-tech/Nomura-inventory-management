@@ -947,15 +947,15 @@ function getAllStocks() {
         }
 
         return {
-          在庫ID: stock['在庫ID'],
-          製品ID: stock['製品ID'],
-          製品名: product ? product['製品名'] : '',
-          カテゴリ1: product ? product['カテゴリ1'] : '',
-          カテゴリ2: product ? product['カテゴリ2'] : '',
-          保管場所ID: stock['保管場所ID'],
-          場所名: location ? location['場所名'] : '',
-          現在在庫数: stock['現在在庫数'],
-          最終更新日時: stock['最終更新日時']
+          在庫ID: String(stock['在庫ID'] || ''),
+          製品ID: String(stock['製品ID'] || ''),
+          製品名: product ? String(product['製品名'] || '') : '',
+          カテゴリ1: product ? String(product['カテゴリ1'] || '') : '',
+          カテゴリ2: product ? String(product['カテゴリ2'] || '') : '',
+          保管場所ID: String(stock['保管場所ID'] || ''),
+          場所名: location ? String(location['場所名'] || '') : '',
+          現在在庫数: Number(stock['現在在庫数'] || 0),
+          最終更新日時: stock['最終更新日時'] ? formatDateTime(stock['最終更新日時']) : ''
         };
       });
 
