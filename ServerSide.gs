@@ -989,11 +989,14 @@ function verifyInventoryCounts(inventoryId) {
   return loggable('verifyInventoryCounts', arguments, function() {
     try {
       requireAdminPermission();
-      
+
       const ss = getSpreadsheet();
       const inputSheet = ss.getSheetByName('T_棚卸担当者別入力');
       const detailSheet = ss.getSheetByName('T_棚卸明細');
-      
+      const productSheet = ss.getSheetByName('M_製品');
+      const locationSheet = ss.getSheetByName('M_保管場所');
+      const userSheet = ss.getSheetByName('M_ユーザー');
+
       // 【修正】nullチェック追加
       if (!inputSheet) {
         throw new Error('T_棚卸担当者別入力シートが見つかりません。スプレッドシートの設定を確認してください。');
@@ -1001,10 +1004,22 @@ function verifyInventoryCounts(inventoryId) {
       if (!detailSheet) {
         throw new Error('T_棚卸明細シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
-      
+      if (!productSheet) {
+        throw new Error('M_製品シートが見つかりません。スプレッドシートの設定を確認してください。');
+      }
+      if (!locationSheet) {
+        throw new Error('M_保管場所シートが見つかりません。スプレッドシートの設定を確認してください。');
+      }
+      if (!userSheet) {
+        throw new Error('M_ユーザーシートが見つかりません。スプレッドシートの設定を確認してください。');
+      }
+
       const counts = findAllRowsByColumn(inputSheet, '棚卸ID', inventoryId);
       const details = findAllRowsByColumn(detailSheet, '棚卸ID', inventoryId);
-      
+      const products = getSheetData(productSheet);
+      const locations = getSheetData(locationSheet);
+      const users = getSheetData(userSheet);
+
       const grouped = {};
       counts.forEach(count => {
         const key = count['製品ID'] + '_' + count['保管場所ID'];
@@ -1015,38 +1030,70 @@ function verifyInventoryCounts(inventoryId) {
             counts: []
           };
         }
+        const user = users.find(u => u['ユーザーID'] === count['担当ユーザーID']);
         grouped[key].counts.push({
           userId: count['担当ユーザーID'],
+          userName: user ? user['ユーザー名'] : count['担当ユーザーID'],
           count: count['カウント数']
         });
       });
-      
+
       const discrepancies = [];
       Object.keys(grouped).forEach(key => {
         const item = grouped[key];
         if (item.counts.length > 1) {
           const firstCount = item.counts[0].count;
           const hasDiscrepancy = item.counts.some(c => c.count !== firstCount);
-          
+
           if (hasDiscrepancy) {
-            const detail = details.find(d => 
+            const detail = details.find(d =>
               d['製品ID'] === item.productId && d['保管場所ID'] === item.locationId
             );
+            const product = products.find(p => String(p['製品ID']) === String(item.productId));
+            const location = locations.find(l => String(l['保管場所ID']) === String(item.locationId));
+
             discrepancies.push({
               productId: item.productId,
+              productName: product ? product['製品名'] : item.productId,
               locationId: item.locationId,
+              locationName: location ? location['場所名'] : item.locationId,
               theoreticalStock: detail ? detail['理論在庫数'] : 0,
               counts: item.counts
             });
           }
         }
       });
-      
+
+      // 一致している場合も照合結果として返す
+      const allResults = [];
+      Object.keys(grouped).forEach(key => {
+        const item = grouped[key];
+        const detail = details.find(d =>
+          d['製品ID'] === item.productId && d['保管場所ID'] === item.locationId
+        );
+        const product = products.find(p => String(p['製品ID']) === String(item.productId));
+        const location = locations.find(l => String(l['保管場所ID']) === String(item.locationId));
+
+        // 平均カウント数を計算
+        const avgCount = item.counts.reduce((sum, c) => sum + Number(c.count), 0) / item.counts.length;
+
+        allResults.push({
+          productId: item.productId,
+          productName: product ? product['製品名'] : item.productId,
+          locationId: item.locationId,
+          locationName: location ? location['場所名'] : item.locationId,
+          theoreticalStock: detail ? detail['理論在庫数'] : 0,
+          confirmedCount: Math.round(avgCount), // 平均値を四捨五入
+          counts: item.counts
+        });
+      });
+
       return {
         success: true,
         totalItems: Object.keys(grouped).length,
         discrepancies: discrepancies,
-        hasDiscrepancies: discrepancies.length > 0
+        hasDiscrepancies: discrepancies.length > 0,
+        allResults: allResults // 全ての照合結果
       };
     } catch (error) {
       Logger.log('verifyInventoryCounts Error: ' + error.toString());
