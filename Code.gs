@@ -1,6 +1,7 @@
 /**
  * 在庫管理アプリ - メインエントリーポイント（修正版）
  * 修正内容：エラーハンドリングとログ出力を強化
+ * 修正内容（ロギング）：getScriptUrlにロギングラッパーを追加
  */
 
 function doGet(e) {
@@ -212,10 +213,14 @@ function include(filename) {
  * WebアプリのURLを取得
  */
 function getScriptUrl() {
-  try {
-    return ScriptApp.getService().getUrl();
-  } catch (error) {
-    Logger.log('getScriptUrl Error: ' + error.toString());
-    return '';
-  }
+  // ★★★ ロギングラッパーで囲む (修正) ★★★
+  // ServerSide.gsで定義されているloggable関数を使用します
+  return loggable('getScriptUrl', arguments, function() {
+    try {
+      return ScriptApp.getService().getUrl();
+    } catch (error) {
+      Logger.log('getScriptUrl Error: ' + error.toString());
+      return '';
+    }
+  });
 }

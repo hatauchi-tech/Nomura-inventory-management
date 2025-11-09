@@ -42,16 +42,31 @@
       </div>
     </div>
     
-    <!-- 検索フォーム -->
+    <!-- 検索フォーム (修正) -->
     <div class="bg-white rounded-lg shadow-md p-6 mb-6">
       <h2 class="text-xl font-semibold text-gray-900 mb-4">在庫検索</h2>
-      <form id="search-form" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <input type="text" id="search-product-id" name="productId"
-               class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-               placeholder="製品ID（部分一致）">
+      <!-- ★★★ フォームのレイアウトと項目を修正 ★★★ -->
+      <form id="search-form" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        
+        <!-- カテゴリ1 -->
+        <select id="search-category1" name="category1"
+                class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="">カテゴリ1（すべて）</option>
+        </select>
+        
+        <!-- カテゴリ2 -->
+        <select id="search-category2" name="category2"
+                class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="">カテゴリ2（すべて）</option>
+        </select>
+        
+        <!-- 製品名 -->
         <input type="text" id="search-product-name" name="productName"
                class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                placeholder="製品名（部分一致）">
+        
+        <!-- 製品ID (削除) -->
+        
         <button type="submit"
                 class="bg-yellow-600 text-white py-2 px-4 rounded-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500">
           検索
@@ -76,7 +91,51 @@
   <script>
     window.addEventListener('load', function() {
       document.getElementById('search-form').addEventListener('submit', handleSearch);
+      
+      // カテゴリ1のドロップダウンを初期化
+      loadCategory1List(); 
+      
+      // カテゴリ1の変更イベントリスナー
+      document.getElementById('search-category1').addEventListener('change', handleCategory1Change);
     });
+    
+    // カテゴリ1リストを読み込む
+    function loadCategory1List() {
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const select = document.getElementById('search-category1');
+          data.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat;
+            option.textContent = cat;
+            select.appendChild(option);
+          });
+        })
+        .withFailureHandler(showError)
+        .getCategory1List(); // ServerSide.gsの既存関数を再利用
+    }
+    
+    // カテゴリ1変更時にカテゴリ2を読み込む
+    function handleCategory1Change() {
+      const category1 = document.getElementById('search-category1').value;
+      const category2Select = document.getElementById('search-category2');
+      
+      category2Select.innerHTML = '<option value="">カテゴリ2（すべて）</option>'; // リセット
+      
+      if (category1) {
+        google.script.run
+          .withSuccessHandler(function(data) {
+            data.forEach(cat => {
+              const option = document.createElement('option');
+              option.value = cat;
+              option.textContent = cat;
+              category2Select.appendChild(option);
+            });
+          })
+          .withFailureHandler(showError)
+          .getCategory2List(category1); // ServerSide.gsの既存関数を再利用
+      }
+    }
     
     function showAllStocks() {
       hideMessages();
@@ -247,17 +306,21 @@
       `;
     }
     
+    // ★★★ 検索処理 (修正) ★★★
     function handleSearch(e) {
       e.preventDefault();
       hideMessages();
       
       const formData = new FormData(e.target);
       const query = {
-        productId: formData.get('productId'),
-        productName: formData.get('productName')
+        // productId: formData.get('productId'), // (削除)
+        productName: formData.get('productName'),
+        category1: formData.get('category1'),
+        category2: formData.get('category2')
       };
       
-      if (!query.productId && !query.productName) {
+      // (修正) 検索条件がすべて空の場合に全件表示する
+      if (!query.productName && !query.category1 && !query.category2) {
         showAllStocks();
         return;
       }
@@ -272,7 +335,7 @@
           hideLoading();
           showError('検索に失敗しました: ' + error.message);
         })
-        .searchStocks(query);
+        .searchStocks(query); // 修正済みのsearchStocksを呼び出す
     }
   </script>
 </body>
