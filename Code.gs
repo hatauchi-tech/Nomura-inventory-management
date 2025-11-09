@@ -60,6 +60,10 @@ function doGet(e) {
         htmlFile = 'MasterManagement';
         pageTitle += ' - マスタ管理';
         break;
+      case 'manual':
+        htmlFile = 'Manual';
+        pageTitle += ' - ユーザーマニュアル';
+        break;
       default:
         Logger.log('doGet: 未知のページ指定 - ' + page);
         htmlFile = user.role === '管理者' ? 'HomeAdmin' : 'HomeUser';

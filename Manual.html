@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>在庫管理システム - ユーザーマニュアル</title>
+  <?!= include('Common'); ?>
+  <style>
+    .manual-section {
+      scroll-margin-top: 80px;
+    }
+    .manual-nav {
+      position: sticky;
+      top: 20px;
+    }
+  </style>
+</head>
+<body class="bg-gray-100">
+  <header class="bg-white shadow-md sticky top-0 z-10">
+    <div class="container mx-auto px-4 py-4">
+      <div class="flex items-center justify-between">
+        <h1 class="text-xl font-bold text-gray-900">在庫管理システム - ユーザーマニュアル</h1>
+        <button onclick="goHome()"
+                class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+          ホームに戻る
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="container mx-auto px-4 py-8">
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <!-- サイドナビゲーション -->
+      <aside class="lg:col-span-1">
+        <nav class="manual-nav bg-white rounded-lg shadow-md p-4">
+          <h3 class="font-bold text-gray-900 mb-3">目次</h3>
+          <ul class="space-y-2 text-sm">
+            <li><a href="#overview" class="text-blue-600 hover:text-blue-800">システム概要</a></li>
+            <li><a href="#getting-started" class="text-blue-600 hover:text-blue-800">はじめに</a></li>
+            <li><a href="#features" class="text-blue-600 hover:text-blue-800">機能一覧</a></li>
+            <li class="ml-4">
+              <a href="#stock-movement" class="text-blue-600 hover:text-blue-800">入出庫登録</a>
+            </li>
+            <li class="ml-4">
+              <a href="#stock-history" class="text-blue-600 hover:text-blue-800">入出庫履歴</a>
+            </li>
+            <li class="ml-4">
+              <a href="#stock-list" class="text-blue-600 hover:text-blue-800">在庫一覧</a>
+            </li>
+            <li class="ml-4">
+              <a href="#inventory-count" class="text-blue-600 hover:text-blue-800">棚卸カウント</a>
+            </li>
+            <li class="ml-4">
+              <a href="#inventory-verify" class="text-blue-600 hover:text-blue-800">棚卸照合・確定</a>
+            </li>
+            <li class="ml-4">
+              <a href="#master-management" class="text-blue-600 hover:text-blue-800">マスタ管理</a>
+            </li>
+            <li><a href="#tips" class="text-blue-600 hover:text-blue-800">便利な使い方</a></li>
+            <li><a href="#faq" class="text-blue-600 hover:text-blue-800">よくある質問</a></li>
+          </ul>
+        </nav>
+      </aside>
+
+      <!-- メインコンテンツ -->
+      <main class="lg:col-span-3">
+        <!-- システム概要 -->
+        <section id="overview" class="manual-section bg-white rounded-lg shadow-md p-6 mb-6">
+          <h2 class="text-2xl font-bold text-gray-900 mb-4">システム概要</h2>
+          <p class="text-gray-700 mb-4">
+            このシステムは、製品の在庫管理を効率的に行うためのWebアプリケーションです。
+            入出庫の記録、在庫照会、棚卸業務などを一元管理できます。
+          </p>
+          <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+            <p class="text-blue-700">
+              <strong>主な特徴：</strong>
+            </p>
+            <ul class="list-disc list-inside mt-2 text-blue-700">
+              <li>リアルタイムな在庫管理</li>
+              <li>複数担当者による棚卸業務のサポート</li>
+              <li>カテゴリ別の製品管理</li>
+              <li>履歴管理機能</li>
+              <li>権限管理（管理者・現場担当者）</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- はじめに -->
+        <section id="getting-started" class="manual-section bg-white rounded-lg shadow-md p-6 mb-6">
+          <h2 class="text-2xl font-bold text-gray-900 mb-4">はじめに</h2>
+
+          <h3 class="text-xl font-semibold text-gray-900 mb-2">ログイン</h3>
+          <p class="text-gray-700 mb-4">
+            システムにアクセスすると、Googleアカウントでの認証が求められます。
+            登録されたメールアドレスでログインしてください。
+          </p>
+
+          <h3 class="text-xl font-semibold text-gray-900 mb-2">権限について</h3>
+          <div class="overflow-x-auto mb-4">
+            <table class="min-w-full bg-white border border-gray-300">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-2 border">権限</th>
+                  <th class="px-4 py-2 border">できること</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="px-4 py-2 border font-semibold">管理者</td>
+                  <td class="px-4 py-2 border">
+                    全ての機能（入出庫登録、在庫照会、棚卸業務、マスタ管理）
+                  </td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-2 border font-semibold">現場担当者</td>
+                  <td class="px-4 py-2 border">
+                    入出庫登録、自分の入出庫履歴確認、在庫照会、棚卸カウント入力
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="text-xl font-semibold text-gray-900 mb-2">画面の基本操作</h3>
+          <ul class="list-disc list-inside text-gray-700 space-y-2">
+            <li>左上の「ホームに戻る」ボタンで、いつでもホーム画面に戻れます</li>
+            <li>各機能は、ホーム画面のカードをクリックして開きます</li>
+            <li>入力フォームでは、必須項目に「*」マークが表示されます</li>
+          </ul>
+        </section>
+
+        <!-- 機能一覧 -->
+        <section id="features" class="manual-section bg-white rounded-lg shadow-md p-6 mb-6">
+          <h2 class="text-2xl font-bold text-gray-900 mb-4">機能一覧</h2>
+
+          <!-- 入出庫登録 -->
+          <div id="stock-movement" class="mb-6">
+            <h3 class="text-xl font-semibold text-gray-900 mb-3 flex items-center">
+              <span class="bg-blue-500 text-white rounded-lg px-2 py-1 text-sm mr-2">現場担当者</span>
+              入出庫登録
+            </h3>
+            <p class="text-gray-700 mb-3">
+              製品の入庫（入荷）や出庫（出荷）を記録する機能です。
+            </p>
+            <div class="bg-gray-50 p-4 rounded-lg mb-3">
+              <h4 class="font-semibold text-gray-900 mb-2">使い方：</h4>
+              <ol class="list-decimal list-inside text-gray-700 space-y-2">
+                <li>「入庫」または「出庫」を選択</li>
+                <li>保管場所を選択</li>
+                <li>カテゴリ1、カテゴリ2を選択して製品を絞り込み</li>
+                <li>製品を選択</li>
+                <li>数量を入力（出庫の場合、在庫不足時はエラーが表示されます）</li>
+                <li>現場名と客先（任意）を入力</li>
+                <li>「登録」ボタンをクリック</li>
+              </ol>
+            </div>
+            <div class="bg-yellow-50 border-l-4 border-yellow-500 p-3">
+              <p class="text-yellow-800 text-sm">
+                <strong>注意：</strong> 出庫時は現在の在庫数以上の数量は登録できません。
+              </p>
+            </div>
+          </div>
+
+          <!-- 入出庫履歴 -->
+          <div id="stock-history" class="mb-6">
+            <h3 class="text-xl font-semibold text-gray-900 mb-3 flex items-center">
+              <span class="bg-blue-500 text-white rounded-lg px-2 py-1 text-sm mr-2">現場担当者</span>
+              入出庫履歴確認
+            </h3>
+            <p class="text-gray-700 mb-3">
+              自分が登録した入出庫の履歴を確認・編集・削除できる機能です。
+            </p>
+            <div class="bg-gray-50 p-4 rounded-lg mb-3">
+              <h4 class="font-semibold text-gray-900 mb-2">使い方：</h4>
+              <ul class="list-disc list-inside text-gray-700 space-y-2">
+                <li><strong>検索：</strong> 入出庫タイプ、保管場所、カテゴリで絞り込み可能</li>
+                <li><strong>編集：</strong> 各行の「編集」ボタンから数量・現場名・客先を変更可能</li>
+                <li><strong>削除：</strong> 各行の「削除」ボタンで履歴を削除（在庫数も自動調整）</li>
+              </ul>
+            </div>
+            <div class="bg-yellow-50 border-l-4 border-yellow-500 p-3">
+              <p class="text-yellow-800 text-sm">
+                <strong>注意：</strong> 編集・削除すると在庫数も連動して調整されます。操作には十分ご注意ください。
+              </p>
+            </div>
+          </div>
+
+          <!-- 在庫一覧 -->
+          <div id="stock-list" class="mb-6">
+            <h3 class="text-xl font-semibold text-gray-900 mb-3 flex items-center">
+              <span class="bg-green-500 text-white rounded-lg px-2 py-1 text-sm mr-2">全員</span>
+              在庫一覧・検索
+            </h3>
+            <p class="text-gray-700 mb-3">
+              現在の在庫状況を確認できる機能です。
+            </p>
+            <div class="bg-gray-50 p-4 rounded-lg">
+              <h4 class="font-semibold text-gray-900 mb-2">使い方：</h4>
+              <ul class="list-disc list-inside text-gray-700 space-y-2">
+                <li>製品名で部分一致検索が可能</li>
+                <li>カテゴリ1、カテゴリ2で絞り込み可能</li>
+                <li>検索結果には製品名、カテゴリ、保管場所、在庫数が表示されます</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- 棚卸カウント -->
+          <div id="inventory-count" class="mb-6">
+            <h3 class="text-xl font-semibold text-gray-900 mb-3 flex items-center">
+              <span class="bg-blue-500 text-white rounded-lg px-2 py-1 text-sm mr-2">現場担当者</span>
+              棚卸カウント入力
+            </h3>
+            <p class="text-gray-700 mb-3">
+              棚卸時に実際の在庫数をカウントして入力する機能です。
+            </p>
+            <div class="bg-gray-50 p-4 rounded-lg mb-3">
+              <h4 class="font-semibold text-gray-900 mb-2">使い方：</h4>
+              <ol class="list-decimal list-inside text-gray-700 space-y-2">
+                <li>棚卸イベントを選択（管理者が作成したもの）</li>
+                <li>保管場所を選択</li>
+                <li>カテゴリ1、カテゴリ2で製品を絞り込み（任意）</li>
+                <li>製品リストが表示されるので、実際にカウントした数量を入力</li>
+                <li>「一括登録」ボタンで入力した数量をまとめて登録</li>
+                <li>下部に自分が登録した履歴が表示されます</li>
+              </ol>
+            </div>
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-3">
+              <p class="text-blue-800 text-sm">
+                <strong>ヒント：</strong> カウント数を入力した製品のみが登録されます。未入力の製品は無視されます。
+              </p>
+            </div>
+          </div>
+
+          <!-- 棚卸照合・確定 -->
+          <div id="inventory-verify" class="mb-6">
+            <h3 class="text-xl font-semibold text-gray-900 mb-3 flex items-center">
+              <span class="bg-red-500 text-white rounded-lg px-2 py-1 text-sm mr-2">管理者</span>
+              棚卸照合・確定
+            </h3>
+            <p class="text-gray-700 mb-3">
+              複数の担当者が入力したカウント数を照合し、在庫を確定する機能です。
+            </p>
+            <div class="bg-gray-50 p-4 rounded-lg mb-3">
+              <h4 class="font-semibold text-gray-900 mb-2">使い方：</h4>
+              <ol class="list-decimal list-inside text-gray-700 space-y-2">
+                <li>棚卸イベントを選択</li>
+                <li>「照合実行」ボタンをクリック</li>
+                <li>複数担当者のカウントが異なる場合、不一致として表示されます</li>
+                <li>「明細表示」ボタンで詳細を確認（照合実行後のみ有効）</li>
+                <li>確定実在庫数が自動入力されているので、必要に応じて修正</li>
+                <li>差異がある場合は差異理由を入力</li>
+                <li>「棚卸確定」ボタンで在庫を確定（自動的に在庫数が更新されます）</li>
+              </ol>
+            </div>
+            <div class="bg-yellow-50 border-l-4 border-yellow-500 p-3">
+              <p class="text-yellow-800 text-sm">
+                <strong>注意：</strong> 棚卸確定後は在庫数が更新され、調整履歴が自動記録されます。慎重に操作してください。
+              </p>
+            </div>
+          </div>
+
+          <!-- マスタ管理 -->
+          <div id="master-management" class="mb-6">
+            <h3 class="text-xl font-semibold text-gray-900 mb-3 flex items-center">
+              <span class="bg-red-500 text-white rounded-lg px-2 py-1 text-sm mr-2">管理者</span>
+              マスタ管理
+            </h3>
+            <p class="text-gray-700 mb-3">
+              製品、ユーザー、保管場所のマスタデータを管理する機能です。
+            </p>
+            <div class="bg-gray-50 p-4 rounded-lg">
+              <h4 class="font-semibold text-gray-900 mb-2">管理できる項目：</h4>
+              <ul class="list-disc list-inside text-gray-700 space-y-2">
+                <li><strong>製品マスタ：</strong> 製品の追加・編集・無効化、カテゴリ設定</li>
+                <li><strong>ユーザーマスタ：</strong> ユーザーの追加・編集・無効化、権限設定</li>
+                <li><strong>保管場所マスタ：</strong> 保管場所の追加・編集・削除</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- 便利な使い方 -->
+        <section id="tips" class="manual-section bg-white rounded-lg shadow-md p-6 mb-6">
+          <h2 class="text-2xl font-bold text-gray-900 mb-4">便利な使い方</h2>
+
+          <div class="space-y-4">
+            <div class="bg-blue-50 p-4 rounded-lg">
+              <h3 class="font-semibold text-blue-900 mb-2">💡 カテゴリを活用しよう</h3>
+              <p class="text-blue-800 text-sm">
+                製品はカテゴリ1（大分類）とカテゴリ2（小分類）で分類されています。
+                絞り込み検索を使うことで、目的の製品を素早く見つけられます。
+              </p>
+            </div>
+
+            <div class="bg-green-50 p-4 rounded-lg">
+              <h3 class="font-semibold text-green-900 mb-2">💡 入出庫履歴の活用</h3>
+              <p class="text-green-800 text-sm">
+                入力ミスに気づいた場合は、入出庫履歴確認画面から編集・削除が可能です。
+                在庫数も自動的に調整されるため、安心して修正できます。
+              </p>
+            </div>
+
+            <div class="bg-purple-50 p-4 rounded-lg">
+              <h3 class="font-semibold text-purple-900 mb-2">💡 棚卸は複数人でチェック</h3>
+              <p class="text-purple-800 text-sm">
+                棚卸カウント入力は複数の担当者が行うことで、カウントミスを防げます。
+                照合画面で自動的に不一致が検出されるため、精度の高い棚卸が可能です。
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- よくある質問 -->
+        <section id="faq" class="manual-section bg-white rounded-lg shadow-md p-6 mb-6">
+          <h2 class="text-2xl font-bold text-gray-900 mb-4">よくある質問</h2>
+
+          <div class="space-y-4">
+            <div class="border-b pb-4">
+              <h3 class="font-semibold text-gray-900 mb-2">Q. 出庫登録で「在庫不足」エラーが出ます</h3>
+              <p class="text-gray-700 text-sm">
+                A. 現在の在庫数以上の数量は出庫できません。在庫一覧画面で現在の在庫数を確認してください。
+                入庫漏れがある場合は、先に入庫登録を行ってください。
+              </p>
+            </div>
+
+            <div class="border-b pb-4">
+              <h3 class="font-semibold text-gray-900 mb-2">Q. 入力した入出庫を削除したい</h3>
+              <p class="text-gray-700 text-sm">
+                A. 入出庫履歴確認画面から、自分が登録した履歴を削除できます。
+                削除すると在庫数も元に戻りますが、削除操作は取り消せないため注意してください。
+              </p>
+            </div>
+
+            <div class="border-b pb-4">
+              <h3 class="font-semibold text-gray-900 mb-2">Q. 棚卸イベントが選択できません</h3>
+              <p class="text-gray-700 text-sm">
+                A. 棚卸イベントは管理者が作成します。イベントが表示されない場合は、管理者に棚卸イベントの作成を依頼してください。
+              </p>
+            </div>
+
+            <div class="border-b pb-4">
+              <h3 class="font-semibold text-gray-900 mb-2">Q. マスタ管理の画面が表示されません</h3>
+              <p class="text-gray-700 text-sm">
+                A. マスタ管理は管理者権限が必要です。現場担当者権限ではアクセスできません。
+              </p>
+            </div>
+
+            <div class="border-b pb-4">
+              <h3 class="font-semibold text-gray-900 mb-2">Q. システムの動作が遅い場合</h3>
+              <p class="text-gray-700 text-sm">
+                A. システムはキャッシュ機能を使用して高速化されています。それでも遅い場合は、
+                ブラウザのキャッシュをクリアするか、別のブラウザで試してください。
+              </p>
+            </div>
+
+            <div>
+              <h3 class="font-semibold text-gray-900 mb-2">Q. その他の質問がある場合</h3>
+              <p class="text-gray-700 text-sm">
+                A. システム管理者にお問い合わせください。
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- フッター -->
+        <div class="bg-gray-50 rounded-lg p-6 text-center">
+          <p class="text-gray-600 text-sm">
+            ご不明な点がございましたら、システム管理者までお問い合わせください。
+          </p>
+          <button onclick="goHome()"
+                  class="mt-4 bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700">
+            ホームに戻る
+          </button>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    function goHome() {
+      window.location.href = '<?= getScriptUrl() ?>';
+    }
+
+    // スムーズスクロール
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+        }
+      });
+    });
+  </script>
+</body>
+</html>

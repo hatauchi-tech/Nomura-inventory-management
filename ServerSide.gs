@@ -66,12 +66,77 @@ function loggable(fnName, args, fn) {
 // ========================================
 
 const SPREADSHEET_ID = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
+const CACHE_EXPIRATION = 600; // キャッシュの有効期限（秒）- 10分
 
 function getSpreadsheet() {
   if (SPREADSHEET_ID) {
     return SpreadsheetApp.openById(SPREADSHEET_ID);
   }
   return SpreadsheetApp.getActiveSpreadsheet();
+}
+
+/**
+ * マスタデータをキャッシュから取得（なければスプレッドシートから取得してキャッシュ）
+ * @param {string} sheetName - シート名
+ * @returns {Array} - シートデータ
+ */
+function getCachedSheetData(sheetName) {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'sheet_' + sheetName;
+
+  // キャッシュから取得を試みる
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch (e) {
+      Logger.log('Cache parse error for ' + sheetName + ': ' + e.toString());
+    }
+  }
+
+  // キャッシュになければスプレッドシートから取得
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
+  const data = getSheetData(sheet);
+
+  // キャッシュに保存（文字列化して保存、100KB制限に注意）
+  try {
+    const dataStr = JSON.stringify(data);
+    if (dataStr.length < 100000) { // 100KB以下のみキャッシュ
+      cache.put(cacheKey, dataStr, CACHE_EXPIRATION);
+    }
+  } catch (e) {
+    Logger.log('Cache save error for ' + sheetName + ': ' + e.toString());
+  }
+
+  return data;
+}
+
+/**
+ * マスタデータのキャッシュをクリア
+ */
+function clearMasterCache() {
+  const cache = CacheService.getScriptCache();
+  const masterSheets = ['M_製品', 'M_保管場所', 'M_ユーザー'];
+  masterSheets.forEach(sheetName => {
+    cache.remove('sheet_' + sheetName);
+  });
+  Logger.log('Master data cache cleared');
+}
+
+/**
+ * データをMapに変換して高速検索を可能にする
+ * @param {Array} data - データ配列
+ * @param {string} keyField - キーとなるフィールド名
+ * @returns {Map} - キーでインデックス化されたMap
+ */
+function createIndexMap(data, keyField) {
+  const map = new Map();
+  data.forEach(item => {
+    const key = String(item[keyField]);
+    map.set(key, item);
+  });
+  return map;
 }
 
 function generateUniqueId(prefix) {
@@ -506,7 +571,7 @@ function updateStock(productId, locationId, quantity, type) {
 // ========================================
 
 function getMyStockMovements(filters) {
-  // ★★★ ロギングラッパーで囲む (新規) ★★★
+  // ★★★ ロギングラッパーで囲む (新規・最適化) ★★★
   return loggable('getMyStockMovements', arguments, function() {
     try {
       const user = getCurrentUser();
@@ -514,22 +579,20 @@ function getMyStockMovements(filters) {
 
       const ss = getSpreadsheet();
       const historySheet = ss.getSheetByName('T_入出庫履歴');
-      const productSheet = ss.getSheetByName('M_製品');
-      const locationSheet = ss.getSheetByName('M_保管場所');
 
       if (!historySheet) {
         throw new Error('T_入出庫履歴シートが見つかりません。');
       }
-      if (!productSheet) {
-        throw new Error('M_製品シートが見つかりません。');
-      }
-      if (!locationSheet) {
-        throw new Error('M_保管場所シートが見つかりません。');
-      }
 
       const histories = getSheetData(historySheet);
-      const products = getSheetData(productSheet);
-      const locations = getSheetData(locationSheet);
+
+      // マスタデータはキャッシュから取得（パフォーマンス改善）
+      const products = getCachedSheetData('M_製品');
+      const locations = getCachedSheetData('M_保管場所');
+
+      // Mapを使って高速検索（パフォーマンス改善）
+      const productMap = createIndexMap(products, '製品ID');
+      const locationMap = createIndexMap(locations, '保管場所ID');
 
       // 自分の履歴のみフィルター
       let myHistories = histories.filter(row => row['操作ユーザーID'] === user.userId);
@@ -544,13 +607,13 @@ function getMyStockMovements(filters) {
         }
         if (filters.category1 && filters.category1 !== '') {
           myHistories = myHistories.filter(row => {
-            const product = products.find(p => String(p['製品ID']) === String(row['製品ID']));
+            const product = productMap.get(String(row['製品ID']));
             return product && product['カテゴリ1'] === filters.category1;
           });
         }
         if (filters.category2 && filters.category2 !== '') {
           myHistories = myHistories.filter(row => {
-            const product = products.find(p => String(p['製品ID']) === String(row['製品ID']));
+            const product = productMap.get(String(row['製品ID']));
             return product && product['カテゴリ2'] === filters.category2;
           });
         }
@@ -558,8 +621,8 @@ function getMyStockMovements(filters) {
 
       // 製品名と場所名を追加
       const result = myHistories.map(history => {
-        const product = products.find(p => String(p['製品ID']) === String(history['製品ID']));
-        const location = locations.find(l => String(l['保管場所ID']) === String(history['保管場所ID']));
+        const product = productMap.get(String(history['製品ID']));
+        const location = locationMap.get(String(history['保管場所ID']));
 
         return {
           履歴ID: String(history['履歴ID'] || ''),
@@ -985,7 +1048,7 @@ function getMyInventoryCounts(inventoryId) {
 }
 
 function verifyInventoryCounts(inventoryId) {
-  // ★★★ ロギングラッパーで囲む (修正) ★★★
+  // ★★★ ロギングラッパーで囲む (修正・最適化) ★★★
   return loggable('verifyInventoryCounts', arguments, function() {
     try {
       requireAdminPermission();
@@ -993,9 +1056,6 @@ function verifyInventoryCounts(inventoryId) {
       const ss = getSpreadsheet();
       const inputSheet = ss.getSheetByName('T_棚卸担当者別入力');
       const detailSheet = ss.getSheetByName('T_棚卸明細');
-      const productSheet = ss.getSheetByName('M_製品');
-      const locationSheet = ss.getSheetByName('M_保管場所');
-      const userSheet = ss.getSheetByName('M_ユーザー');
 
       // 【修正】nullチェック追加
       if (!inputSheet) {
@@ -1004,21 +1064,19 @@ function verifyInventoryCounts(inventoryId) {
       if (!detailSheet) {
         throw new Error('T_棚卸明細シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
-      if (!productSheet) {
-        throw new Error('M_製品シートが見つかりません。スプレッドシートの設定を確認してください。');
-      }
-      if (!locationSheet) {
-        throw new Error('M_保管場所シートが見つかりません。スプレッドシートの設定を確認してください。');
-      }
-      if (!userSheet) {
-        throw new Error('M_ユーザーシートが見つかりません。スプレッドシートの設定を確認してください。');
-      }
 
       const counts = findAllRowsByColumn(inputSheet, '棚卸ID', inventoryId);
       const details = findAllRowsByColumn(detailSheet, '棚卸ID', inventoryId);
-      const products = getSheetData(productSheet);
-      const locations = getSheetData(locationSheet);
-      const users = getSheetData(userSheet);
+
+      // マスタデータはキャッシュから取得（パフォーマンス改善）
+      const products = getCachedSheetData('M_製品');
+      const locations = getCachedSheetData('M_保管場所');
+      const users = getCachedSheetData('M_ユーザー');
+
+      // Mapを使って高速検索（パフォーマンス改善）
+      const productMap = createIndexMap(products, '製品ID');
+      const locationMap = createIndexMap(locations, '保管場所ID');
+      const userMap = createIndexMap(users, 'ユーザーID');
 
       const grouped = {};
       counts.forEach(count => {
@@ -1030,7 +1088,7 @@ function verifyInventoryCounts(inventoryId) {
             counts: []
           };
         }
-        const user = users.find(u => u['ユーザーID'] === count['担当ユーザーID']);
+        const user = userMap.get(String(count['担当ユーザーID']));
         grouped[key].counts.push({
           userId: count['担当ユーザーID'],
           userName: user ? user['ユーザー名'] : count['担当ユーザーID'],
@@ -1049,8 +1107,8 @@ function verifyInventoryCounts(inventoryId) {
             const detail = details.find(d =>
               d['製品ID'] === item.productId && d['保管場所ID'] === item.locationId
             );
-            const product = products.find(p => String(p['製品ID']) === String(item.productId));
-            const location = locations.find(l => String(l['保管場所ID']) === String(item.locationId));
+            const product = productMap.get(String(item.productId));
+            const location = locationMap.get(String(item.locationId));
 
             discrepancies.push({
               productId: item.productId,
@@ -1071,8 +1129,8 @@ function verifyInventoryCounts(inventoryId) {
         const detail = details.find(d =>
           d['製品ID'] === item.productId && d['保管場所ID'] === item.locationId
         );
-        const product = products.find(p => String(p['製品ID']) === String(item.productId));
-        const location = locations.find(l => String(l['保管場所ID']) === String(item.locationId));
+        const product = productMap.get(String(item.productId));
+        const location = locationMap.get(String(item.locationId));
 
         // 平均カウント数を計算
         const avgCount = item.counts.reduce((sum, c) => sum + Number(c.count), 0) / item.counts.length;
@@ -1103,34 +1161,32 @@ function verifyInventoryCounts(inventoryId) {
 }
 
 function getInventoryDetails(inventoryId) {
-  // ★★★ ロギングラッパーで囲む (修正) ★★★
+  // ★★★ ロギングラッパーで囲む (修正・最適化) ★★★
   return loggable('getInventoryDetails', arguments, function() {
     try {
       requireAdminPermission();
-      
+
       const ss = getSpreadsheet();
       const detailSheet = ss.getSheetByName('T_棚卸明細');
-      const productSheet = ss.getSheetByName('M_製品');
-      const locationSheet = ss.getSheetByName('M_保管場所');
-      
+
       // 【修正】nullチェック追加
       if (!detailSheet) {
         throw new Error('T_棚卸明細シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
-      if (!productSheet) {
-        throw new Error('M_製品シートが見つかりません。スプレッドシートの設定を確認してください。');
-      }
-      if (!locationSheet) {
-        throw new Error('M_保管場所シートが見つかりません。スプレッドシートの設定を確認してください。');
-      }
-      
+
       const details = findAllRowsByColumn(detailSheet, '棚卸ID', inventoryId);
-      const products = getSheetData(productSheet);
-      const locations = getSheetData(locationSheet);
-      
+
+      // マスタデータはキャッシュから取得（パフォーマンス改善）
+      const products = getCachedSheetData('M_製品');
+      const locations = getCachedSheetData('M_保管場所');
+
+      // Mapを使って高速検索（パフォーマンス改善）
+      const productMap = createIndexMap(products, '製品ID');
+      const locationMap = createIndexMap(locations, '保管場所ID');
+
       return details.map(detail => {
-        const product = products.find(p => p['製品ID'] === detail['製品ID']);
-        const location = locations.find(l => l['保管場所ID'] === detail['保管場所ID']);
+        const product = productMap.get(String(detail['製品ID']));
+        const location = locationMap.get(String(detail['保管場所ID']));
         return {
           ...detail,
           製品名: product ? product['製品名'] : '',
@@ -1145,18 +1201,18 @@ function getInventoryDetails(inventoryId) {
 }
 
 function finalizeInventory(inventoryId, details) {
-  // ★★★ ロギングラッパーで囲む (修正) ★★★
+  // ★★★ ロギングラッパーで囲む (修正・バッチ処理最適化) ★★★
   return loggable('finalizeInventory', arguments, function() {
     try {
       requireAdminPermission();
       if (!details || details.length === 0) throw new Error('確定する明細データがありません');
-      
+
       const ss = getSpreadsheet();
       const detailSheet = ss.getSheetByName('T_棚卸明細');
       const stockSheet = ss.getSheetByName('T_在庫');
       const historySheet = ss.getSheetByName('T_入出庫履歴');
       const inventoryHistorySheet = ss.getSheetByName('T_棚卸履歴');
-      
+
       // 【修正】nullチェック追加
       if (!detailSheet) {
         throw new Error('T_棚卸明細シートが見つかりません。スプレッドシートの設定を確認してください。');
@@ -1170,72 +1226,114 @@ function finalizeInventory(inventoryId, details) {
       if (!inventoryHistorySheet) {
         throw new Error('T_棚卸履歴シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
-      
+
       const user = getCurrentUser();
-      
+      const currentDateTime = getCurrentDateTime();
+
       let updatedStocks = 0;
       let adjustmentHistories = 0;
-      
+
+      // データを一括取得
       const detailData = detailSheet.getDataRange().getValues();
       const detailHeaders = detailData[0];
       const stockData = stockSheet.getDataRange().getValues();
       const stockHeaders = stockData[0];
-      
+
+      // インデックスを事前計算
+      const detailIdIdx = detailHeaders.indexOf('棚卸明細ID');
+      const confirmedCountIdx = detailHeaders.indexOf('確定実在庫数');
+      const discrepancyIdx = detailHeaders.indexOf('差異');
+      const discrepancyReasonIdx = detailHeaders.indexOf('差異理由');
+
+      const stockProductIdIdx = stockHeaders.indexOf('製品ID');
+      const stockLocationIdIdx = stockHeaders.indexOf('保管場所ID');
+      const stockCountIdx = stockHeaders.indexOf('現在在庫数');
+      const stockDateIdx = stockHeaders.indexOf('最終更新日時');
+
+      // 更新データを準備（バッチ処理のため）
+      const detailUpdates = [];
+      const stockUpdates = [];
+      const historyRecords = [];
+
       details.forEach(detail => {
         const confirmedCount = Number(detail.confirmedCount);
         const theoreticalStock = Number(detail.theoreticalStock || 0);
         const discrepancy = confirmedCount - theoreticalStock;
-        
-        // 棚卸明細を更新
+
+        // 棚卸明細の更新データを準備
         for (let i = 1; i < detailData.length; i++) {
-          if (detailData[i][detailHeaders.indexOf('棚卸明細ID')] === detail.detailId) {
-            detailSheet.getRange(i + 1, detailHeaders.indexOf('確定実在庫数') + 1).setValue(confirmedCount);
-            detailSheet.getRange(i + 1, detailHeaders.indexOf('差異') + 1).setValue(discrepancy);
-            detailSheet.getRange(i + 1, detailHeaders.indexOf('差異理由') + 1).setValue(detail.discrepancyReason || '');
+          if (detailData[i][detailIdIdx] === detail.detailId) {
+            detailData[i][confirmedCountIdx] = confirmedCount;
+            detailData[i][discrepancyIdx] = discrepancy;
+            detailData[i][discrepancyReasonIdx] = detail.discrepancyReason || '';
+            detailUpdates.push({
+              row: i + 1,
+              values: [confirmedCount, discrepancy, detail.discrepancyReason || '']
+            });
             break;
           }
         }
-        
-        // T_在庫を更新
+
+        // 在庫の更新データを準備
         for (let i = 1; i < stockData.length; i++) {
-          if (stockData[i][stockHeaders.indexOf('製品ID')] === detail.productId && 
-              stockData[i][stockHeaders.indexOf('保管場所ID')] === detail.locationId) {
-            stockSheet.getRange(i + 1, stockHeaders.indexOf('現在在庫数') + 1).setValue(confirmedCount);
-            stockSheet.getRange(i + 1, stockHeaders.indexOf('最終更新日時') + 1).setValue(getCurrentDateTime());
+          if (stockData[i][stockProductIdIdx] === detail.productId &&
+              stockData[i][stockLocationIdIdx] === detail.locationId) {
+            stockData[i][stockCountIdx] = confirmedCount;
+            stockData[i][stockDateIdx] = currentDateTime;
+            stockUpdates.push({
+              row: i + 1,
+              values: [confirmedCount, currentDateTime]
+            });
             updatedStocks++;
             break;
           }
         }
-        
-        // 差異がある場合、調整ログを追加
+
+        // 差異がある場合、調整ログを準備
         if (discrepancy !== 0) {
           const historyId = generateUniqueId('H');
           const adjustmentType = discrepancy > 0 ? '棚卸調整(入庫)' : '棚卸調整(出庫)';
-          const historyData = {
+          historyRecords.push({
             '履歴ID': historyId,
             '製品ID': detail.productId,
             '数量': Math.abs(discrepancy),
             '入出庫タイプ': adjustmentType,
             '現場名': '棚卸調整: ' + inventoryId,
-            '発生日時': getCurrentDateTime(),
+            '発生日時': currentDateTime,
             '操作ユーザーID': user.userId,
             '保管場所ID': detail.locationId
-          };
-          appendRowToSheet(historySheet, historyData);
+          });
           adjustmentHistories++;
         }
       });
-      
+
+      // バッチ更新を実行（パフォーマンス改善）
+      detailUpdates.forEach(update => {
+        detailSheet.getRange(update.row, confirmedCountIdx + 1, 1, 3).setValues([update.values]);
+      });
+
+      stockUpdates.forEach(update => {
+        stockSheet.getRange(update.row, stockCountIdx + 1, 1, 1).setValue(update.values[0]);
+        stockSheet.getRange(update.row, stockDateIdx + 1, 1, 1).setValue(update.values[1]);
+      });
+
+      // 調整ログを一括追加
+      historyRecords.forEach(record => {
+        appendRowToSheet(historySheet, record);
+      });
+
       // ステータスを「確定済」に更新
       const inventoryData = inventoryHistorySheet.getDataRange().getValues();
       const inventoryHeaders = inventoryData[0];
+      const statusIdx = inventoryHeaders.indexOf('ステータス');
+      const invIdIdx = inventoryHeaders.indexOf('棚卸ID');
       for (let i = 1; i < inventoryData.length; i++) {
-        if (inventoryData[i][inventoryHeaders.indexOf('棚卸ID')] === inventoryId) {
-          inventoryHistorySheet.getRange(i + 1, inventoryHeaders.indexOf('ステータス') + 1).setValue('確定済');
+        if (inventoryData[i][invIdIdx] === inventoryId) {
+          inventoryHistorySheet.getRange(i + 1, statusIdx + 1).setValue('確定済');
           break;
         }
       }
-      
+
       return {
         success: true,
         message: '棚卸を確定しました',
@@ -1254,41 +1352,40 @@ function finalizeInventory(inventoryId, details) {
 // ========================================
 
 function getAllStocks() {
-  // ★★★ ロギングラッパーで囲む (修正) ★★★
+  // ★★★ ロギングラッパーで囲む (修正・最適化) ★★★
   return loggable('getAllStocks', arguments, function() {
     try {
       const ss = getSpreadsheet();
       const stockSheet = ss.getSheetByName('T_在庫');
-      const productSheet = ss.getSheetByName('M_製品');
-      const locationSheet = ss.getSheetByName('M_保管場所');
-      
+
       // 【修正】nullチェック追加
       if (!stockSheet) {
         throw new Error('T_在庫シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
-      if (!productSheet) {
-        throw new Error('M_製品シートが見つかりません。スプレッドシートの設定を確認してください。');
-      }
-      if (!locationSheet) {
-        throw new Error('M_保管場所シートが見つかりません。スプレッドシートの設定を確認してください。');
-      }
-      
+
+      // 在庫データは常に最新のものを取得（キャッシュなし）
       const stocks = getSheetData(stockSheet);
-      const products = getSheetData(productSheet);
-      const locations = getSheetData(locationSheet);
+
+      // マスタデータはキャッシュから取得（パフォーマンス改善）
+      const products = getCachedSheetData('M_製品');
+      const locations = getCachedSheetData('M_保管場所');
 
       // デバッグログ追加
       Logger.log('getAllStocks: stocks count = ' + stocks.length);
       Logger.log('getAllStocks: products count = ' + products.length);
       Logger.log('getAllStocks: locations count = ' + locations.length);
 
+      // Mapを使って高速検索（パフォーマンス改善）
+      const productMap = createIndexMap(products, '製品ID');
+      const locationMap = createIndexMap(locations, '保管場所ID');
+
       const result = stocks.map(stock => {
         // 型を文字列に統一して比較
         const stockProductId = String(stock['製品ID']);
         const stockLocationId = String(stock['保管場所ID']);
 
-        const product = products.find(p => String(p['製品ID']) === stockProductId);
-        const location = locations.find(l => String(l['保管場所ID']) === stockLocationId);
+        const product = productMap.get(stockProductId);
+        const location = locationMap.get(stockLocationId);
 
         // デバッグ: マッチングできなかった場合のログ
         if (!product) {
