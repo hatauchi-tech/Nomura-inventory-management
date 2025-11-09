@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>入出庫履歴確認</title>
+  <?!= include('Common'); ?>
+  <style>
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0,0,0,0.4);
+    }
+    .modal-content {
+      background-color: #fefefe;
+      margin: 5% auto;
+      padding: 30px;
+      border: 1px solid #888;
+      border-radius: 10px;
+      width: 90%;
+      max-width: 600px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .close {
+      color: #aaa;
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .close:hover,
+    .close:focus {
+      color: #000;
+    }
+    .action-buttons {
+      display: flex;
+      gap: 8px;
+    }
+    .action-buttons button {
+      padding: 6px 12px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body class="bg-gray-100">
+  <header class="bg-white shadow-md">
+    <div class="container mx-auto px-4 py-4">
+      <div class="flex items-center justify-between">
+        <h1 class="text-xl font-bold text-gray-900">在庫管理システム</h1>
+        <button onclick="goHome()"
+                class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+          ホームに戻る
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900">入出庫履歴確認</h1>
+      <p class="mt-2 text-gray-600">自分が登録した入出庫履歴を確認・編集・削除できます</p>
+    </div>
+
+    <!-- 絞り込み条件 -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+      <h2 class="text-xl font-semibold text-gray-900 mb-4">絞り込み条件</h2>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <!-- 入出庫タイプ -->
+        <div>
+          <label for="filter-type" class="block text-sm font-medium text-gray-700 mb-2">
+            入出庫タイプ
+          </label>
+          <select id="filter-type"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">すべて</option>
+            <option value="入庫">入庫</option>
+            <option value="出庫">出庫</option>
+          </select>
+        </div>
+
+        <!-- 保管場所 -->
+        <div>
+          <label for="filter-location" class="block text-sm font-medium text-gray-700 mb-2">
+            保管場所
+          </label>
+          <select id="filter-location"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">すべて</option>
+          </select>
+        </div>
+
+        <!-- カテゴリ1 -->
+        <div>
+          <label for="filter-category1" class="block text-sm font-medium text-gray-700 mb-2">
+            カテゴリ1
+          </label>
+          <select id="filter-category1"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">すべて</option>
+          </select>
+        </div>
+
+        <!-- カテゴリ2 -->
+        <div>
+          <label for="filter-category2" class="block text-sm font-medium text-gray-700 mb-2">
+            カテゴリ2
+          </label>
+          <select id="filter-category2"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">すべて</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <button onclick="loadHistory()"
+                class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          履歴を表示
+        </button>
+      </div>
+    </div>
+
+    <!-- メッセージ表示エリア -->
+    <div id="error-message" class="hidden bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+      <p class="text-sm text-red-700"></p>
+    </div>
+
+    <div id="success-message" class="hidden bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+      <p class="text-sm text-green-700"></p>
+    </div>
+
+    <!-- 履歴一覧表示エリア -->
+    <div id="history-area" class="bg-white rounded-lg shadow-md p-6">
+      <h2 class="text-xl font-semibold text-gray-900 mb-4">履歴一覧</h2>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 8%;">タイプ</th>
+              <th style="width: 10%;">製品ID</th>
+              <th style="width: 18%;">製品名</th>
+              <th style="width: 10%;">保管場所</th>
+              <th style="width: 8%;">数量</th>
+              <th style="width: 12%;">現場名</th>
+              <th style="width: 12%;">客先</th>
+              <th style="width: 12%;">発生日時</th>
+              <th style="width: 10%;">操作</th>
+            </tr>
+          </thead>
+          <tbody id="history-tbody">
+            <tr><td colspan="9" class="text-center text-gray-500">「履歴を表示」ボタンをクリックしてください</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 編集モーダル -->
+  <div id="editModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeEditModal()">&times;</span>
+      <h2 class="text-2xl font-bold text-gray-900 mb-6">入出庫履歴の編集</h2>
+
+      <form id="edit-form" class="space-y-4">
+        <input type="hidden" id="edit-history-id">
+
+        <div class="bg-gray-50 p-4 rounded-md mb-4">
+          <div class="grid grid-cols-2 gap-2 text-sm">
+            <div><strong>タイプ:</strong> <span id="edit-type-display"></span></div>
+            <div><strong>製品:</strong> <span id="edit-product-display"></span></div>
+            <div><strong>保管場所:</strong> <span id="edit-location-display"></span></div>
+            <div><strong>発生日時:</strong> <span id="edit-date-display"></span></div>
+          </div>
+        </div>
+
+        <div>
+          <label for="edit-quantity" class="block text-sm font-medium text-gray-700 mb-2">
+            数量 <span class="text-red-500">*</span>
+          </label>
+          <input type="number" id="edit-quantity" required min="1"
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div>
+          <label for="edit-site-name" class="block text-sm font-medium text-gray-700 mb-2">
+            現場名
+          </label>
+          <input type="text" id="edit-site-name"
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div>
+          <label for="edit-customer-name" class="block text-sm font-medium text-gray-700 mb-2">
+            客先
+          </label>
+          <input type="text" id="edit-customer-name"
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div class="flex space-x-4 mt-6">
+          <button type="submit"
+                  class="flex-1 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
+            保存
+          </button>
+          <button type="button" onclick="closeEditModal()"
+                  class="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500">
+            キャンセル
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let currentHistories = [];
+
+    window.addEventListener('load', function() {
+      loadLocations();
+      loadCategory1List();
+      loadHistory();
+
+      document.getElementById('filter-category1').addEventListener('change', handleCategory1Change);
+      document.getElementById('edit-form').addEventListener('submit', handleEditSubmit);
+    });
+
+    function loadLocations() {
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const select = document.getElementById('filter-location');
+          data.forEach(loc => {
+            const option = document.createElement('option');
+            option.value = loc['保管場所ID'];
+            option.textContent = loc['場所名'];
+            select.appendChild(option);
+          });
+        })
+        .withFailureHandler(showError)
+        .getStorageLocations();
+    }
+
+    function loadCategory1List() {
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const select = document.getElementById('filter-category1');
+          data.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat;
+            option.textContent = cat;
+            select.appendChild(option);
+          });
+        })
+        .withFailureHandler(showError)
+        .getCategory1List();
+    }
+
+    function handleCategory1Change() {
+      const category1 = document.getElementById('filter-category1').value;
+      const category2Select = document.getElementById('filter-category2');
+
+      category2Select.innerHTML = '<option value="">すべて</option>';
+
+      if (category1) {
+        google.script.run
+          .withSuccessHandler(function(data) {
+            data.forEach(cat => {
+              const option = document.createElement('option');
+              option.value = cat;
+              option.textContent = cat;
+              category2Select.appendChild(option);
+            });
+          })
+          .withFailureHandler(showError)
+          .getCategory2List(category1);
+      }
+    }
+
+    function loadHistory() {
+      hideMessages();
+
+      const filters = {
+        type: document.getElementById('filter-type').value,
+        locationId: document.getElementById('filter-location').value,
+        category1: document.getElementById('filter-category1').value,
+        category2: document.getElementById('filter-category2').value
+      };
+
+      showLoading();
+      google.script.run
+        .withSuccessHandler(function(data) {
+          hideLoading();
+          currentHistories = data;
+          displayHistory(data);
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          showError('履歴の取得に失敗しました: ' + error.message);
+        })
+        .getMyStockMovements(filters);
+    }
+
+    function displayHistory(histories) {
+      const tbody = document.getElementById('history-tbody');
+      tbody.innerHTML = '';
+
+      if (histories.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-gray-500">データがありません</td></tr>';
+      } else {
+        histories.forEach((history, index) => {
+          const tr = document.createElement('tr');
+
+          const typeClass = history['入出庫タイプ'] === '入庫' ? 'text-blue-600 font-semibold' : 'text-red-600 font-semibold';
+
+          tr.innerHTML = `
+            <td><span class="${typeClass}">${history['入出庫タイプ']}</span></td>
+            <td>${history['製品ID']}</td>
+            <td>${history['製品名']}</td>
+            <td>${history['場所名']}</td>
+            <td class="font-semibold">${formatNumber(history['数量'])}</td>
+            <td>${history['現場名']}</td>
+            <td>${history['客先']}</td>
+            <td>${history['発生日時']}</td>
+            <td>
+              <div class="action-buttons">
+                <button onclick="openEditModal(${index})"
+                        class="bg-yellow-500 text-white rounded hover:bg-yellow-600">
+                  編集
+                </button>
+                <button onclick="deleteHistory('${history['履歴ID']}')"
+                        class="bg-red-500 text-white rounded hover:bg-red-600">
+                  削除
+                </button>
+              </div>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+    }
+
+    function openEditModal(index) {
+      const history = currentHistories[index];
+
+      document.getElementById('edit-history-id').value = history['履歴ID'];
+      document.getElementById('edit-type-display').textContent = history['入出庫タイプ'];
+      document.getElementById('edit-product-display').textContent = `${history['製品ID']} - ${history['製品名']}`;
+      document.getElementById('edit-location-display').textContent = history['場所名'];
+      document.getElementById('edit-date-display').textContent = history['発生日時'];
+
+      document.getElementById('edit-quantity').value = history['数量'];
+      document.getElementById('edit-site-name').value = history['現場名'];
+      document.getElementById('edit-customer-name').value = history['客先'];
+
+      document.getElementById('editModal').style.display = 'block';
+    }
+
+    function closeEditModal() {
+      document.getElementById('editModal').style.display = 'none';
+      document.getElementById('edit-form').reset();
+    }
+
+    function handleEditSubmit(e) {
+      e.preventDefault();
+      hideMessages();
+
+      const historyId = document.getElementById('edit-history-id').value;
+      const newData = {
+        quantity: document.getElementById('edit-quantity').value,
+        siteName: document.getElementById('edit-site-name').value,
+        customerName: document.getElementById('edit-customer-name').value
+      };
+
+      if (!confirmAction('この履歴を更新しますか？（在庫数も連動して更新されます）')) {
+        return;
+      }
+
+      showLoading();
+      google.script.run
+        .withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showSuccess(result.message);
+            closeEditModal();
+            loadHistory();
+          } else {
+            showError(result.error);
+          }
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          showError('エラーが発生しました: ' + error.message);
+        })
+        .updateStockMovement(historyId, newData);
+    }
+
+    function deleteHistory(historyId) {
+      if (!confirmAction('この履歴を削除しますか？（在庫数も元に戻ります）\n\nこの操作は取り消せません。')) {
+        return;
+      }
+
+      hideMessages();
+      showLoading();
+      google.script.run
+        .withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showSuccess(result.message);
+            loadHistory();
+          } else {
+            showError(result.error);
+          }
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          showError('エラーが発生しました: ' + error.message);
+        })
+        .deleteStockMovement(historyId);
+    }
+
+    // モーダルの外側をクリックしたら閉じる
+    window.onclick = function(event) {
+      const modal = document.getElementById('editModal');
+      if (event.target == modal) {
+        closeEditModal();
+      }
+    }
+  </script>
+</body>
+</html>
