@@ -64,7 +64,7 @@
   <div class="container mx-auto px-4 py-8">
     <div class="mb-8">
       <h1 class="text-3xl font-bold text-gray-900">入出庫履歴確認</h1>
-      <p class="mt-2 text-gray-600">自分が登録した入出庫履歴を確認・編集・削除できます</p>
+      <p id="page-description" class="mt-2 text-gray-600"></p>
     </div>
 
     <!-- 絞り込み条件 -->
@@ -116,6 +116,44 @@
             <option value="">すべて</option>
           </select>
         </div>
+
+        <!-- 発生日時（開始） -->
+        <div>
+          <label for="filter-date-from" class="block text-sm font-medium text-gray-700 mb-2">
+            発生日時（開始）
+          </label>
+          <input type="date" id="filter-date-from"
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <!-- 発生日時（終了） -->
+        <div>
+          <label for="filter-date-to" class="block text-sm font-medium text-gray-700 mb-2">
+            発生日時（終了）
+          </label>
+          <input type="date" id="filter-date-to"
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <!-- 現場名・号地 -->
+        <div>
+          <label for="filter-site-name" class="block text-sm font-medium text-gray-700 mb-2">
+            現場名・号地
+          </label>
+          <input type="text" id="filter-site-name"
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                 placeholder="部分一致で検索">
+        </div>
+
+        <!-- お客様名 -->
+        <div>
+          <label for="filter-customer-name" class="block text-sm font-medium text-gray-700 mb-2">
+            お客様名
+          </label>
+          <input type="text" id="filter-customer-name"
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                 placeholder="部分一致で検索">
+        </div>
       </div>
 
       <div class="mt-4">
@@ -140,21 +178,22 @@
       <h2 class="text-xl font-semibold text-gray-900 mb-4">履歴一覧</h2>
       <div class="table-container">
         <table>
-          <thead>
+          <thead id="history-thead">
             <tr>
-              <th style="width: 8%;">タイプ</th>
-              <th style="width: 10%;">製品ID</th>
-              <th style="width: 18%;">製品名</th>
-              <th style="width: 10%;">保管場所</th>
-              <th style="width: 8%;">数量</th>
-              <th style="width: 12%;">現場名</th>
-              <th style="width: 12%;">客先</th>
-              <th style="width: 12%;">発生日時</th>
-              <th style="width: 10%;">操作</th>
+              <th style="width: 7%;">タイプ</th>
+              <th style="width: 9%;">製品ID</th>
+              <th style="width: 16%;">製品名</th>
+              <th style="width: 9%;">保管場所</th>
+              <th style="width: 7%;">数量</th>
+              <th style="width: 11%;">現場名・号地</th>
+              <th style="width: 11%;">お客様名</th>
+              <th style="width: 11%;">発生日時</th>
+              <th id="user-header" style="width: 10%; display: none;">操作ユーザー</th>
+              <th style="width: 9%;">操作</th>
             </tr>
           </thead>
           <tbody id="history-tbody">
-            <tr><td colspan="9" class="text-center text-gray-500">「履歴を表示」ボタンをクリックしてください</td></tr>
+            <tr><td colspan="10" class="text-center text-gray-500">「履歴を表示」ボタンをクリックしてください</td></tr>
           </tbody>
         </table>
       </div>
@@ -189,7 +228,7 @@
 
         <div>
           <label for="edit-site-name" class="block text-sm font-medium text-gray-700 mb-2">
-            現場名
+            現場名・号地
           </label>
           <input type="text" id="edit-site-name"
                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -197,7 +236,7 @@
 
         <div>
           <label for="edit-customer-name" class="block text-sm font-medium text-gray-700 mb-2">
-            客先
+            お客様名
           </label>
           <input type="text" id="edit-customer-name"
                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -219,8 +258,30 @@
 
   <script>
     let currentHistories = [];
+    let currentUser = null;
+    let isAdmin = false;
 
     window.addEventListener('load', function() {
+      // ユーザー情報を取得して画面を初期化
+      google.script.run
+        .withSuccessHandler(function(user) {
+          currentUser = user;
+          isAdmin = user && user.role === '管理者';
+
+          // 説明文を動的に変更
+          const description = isAdmin
+            ? '全ユーザーが登録した入出庫履歴を確認・編集・削除できます'
+            : '自分が登録した入出庫履歴を確認・編集・削除できます';
+          document.getElementById('page-description').textContent = description;
+
+          // 管理者の場合は「操作ユーザー」列を表示
+          if (isAdmin) {
+            document.getElementById('user-header').style.display = '';
+          }
+        })
+        .withFailureHandler(showError)
+        .getCurrentUser();
+
       loadLocations();
       loadCategory1List();
       loadHistory();
@@ -287,7 +348,11 @@
         type: document.getElementById('filter-type').value,
         locationId: document.getElementById('filter-location').value,
         category1: document.getElementById('filter-category1').value,
-        category2: document.getElementById('filter-category2').value
+        category2: document.getElementById('filter-category2').value,
+        dateFrom: document.getElementById('filter-date-from').value,
+        dateTo: document.getElementById('filter-date-to').value,
+        siteName: document.getElementById('filter-site-name').value,
+        customerName: document.getElementById('filter-customer-name').value
       };
 
       showLoading();
@@ -308,13 +373,18 @@
       const tbody = document.getElementById('history-tbody');
       tbody.innerHTML = '';
 
+      const colspan = isAdmin ? 10 : 9;
+
       if (histories.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-gray-500">データがありません</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center text-gray-500">データがありません</td></tr>`;
       } else {
         histories.forEach((history, index) => {
           const tr = document.createElement('tr');
 
           const typeClass = history['入出庫タイプ'] === '入庫' ? 'text-blue-600 font-semibold' : 'text-red-600 font-semibold';
+
+          // 管理者の場合は「操作ユーザー名」列も表示
+          const userColumn = isAdmin ? `<td>${history['操作ユーザー名']}</td>` : '';
 
           tr.innerHTML = `
             <td><span class="${typeClass}">${history['入出庫タイプ']}</span></td>
@@ -325,6 +395,7 @@
             <td>${history['現場名']}</td>
             <td>${history['客先']}</td>
             <td>${history['発生日時']}</td>
+            ${userColumn}
             <td>
               <div class="action-buttons">
                 <button onclick="openEditModal(${index})"
