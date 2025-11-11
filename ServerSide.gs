@@ -375,16 +375,17 @@ function getCurrentStock(productId, locationId) {
     try {
       const ss = getSpreadsheet();
       const sheet = ss.getSheetByName('T_在庫');
-      
+
       // 【修正】nullチェック追加
       if (!sheet) {
         throw new Error('T_在庫シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
-      
+
       const data = getSheetData(sheet);
-      
-      const stock = data.find(row => 
-        row['製品ID'] === productId && row['保管場所ID'] === locationId
+
+      // 【修正】型を統一して比較（String型に変換）
+      const stock = data.find(row =>
+        String(row['製品ID']) === String(productId) && String(row['保管場所ID']) === String(locationId)
       );
       return stock ? Number(stock['現在在庫数']) : 0;
     } catch (error) {
@@ -400,14 +401,19 @@ function registerStockMovement(data) {
     try {
       const user = getCurrentUser();
       if (!user || !user.valid) throw new Error('ログインが必要です');
-      
+
+      // 【修正】入庫時は管理者のみ、出庫は全員OK
+      if (data.type === '入庫' && user.role !== '管理者') {
+        throw new Error('入庫登録は管理者のみ実行できます');
+      }
+
       const validation = validateRequiredFields(data, ['type', 'locationId', 'productId', 'quantity']);
       if (!validation.valid) throw new Error(validation.errors.join(', '));
-      
+
       if (!validateNumber(data.quantity, 1)) {
         throw new Error('数量は1以上の数値を入力してください');
       }
-      
+
       const quantity = Number(data.quantity);
       const ss = getSpreadsheet();
       
@@ -457,25 +463,26 @@ function registerStockMovement(data) {
 function updateStock(productId, locationId, quantity, type) {
   const ss = getSpreadsheet();
   const stockSheet = ss.getSheetByName('T_在庫');
-  
+
   // 【修正】nullチェック追加
   if (!stockSheet) {
     throw new Error('T_在庫シートが見つかりません。スプレッドシートの設定を確認してください。');
   }
-  
+
   const data = stockSheet.getDataRange().getValues();
   const headers = data[0];
-  
+
   const productIdIndex = headers.indexOf('製品ID');
   const locationIdIndex = headers.indexOf('保管場所ID');
   const stockIndex = headers.indexOf('現在在庫数');
   const dateIndex = headers.indexOf('最終更新日時');
-  
+
   let found = false;
   let newStockQuantity;
-  
+
   for (let i = 1; i < data.length; i++) {
-    if (data[i][productIdIndex] === productId && data[i][locationIdIndex] === locationId) {
+    // 【修正】型を統一して比較（String型に変換）
+    if (String(data[i][productIdIndex]) === String(productId) && String(data[i][locationIdIndex]) === String(locationId)) {
       const currentQuantity = Number(data[i][stockIndex]);
       newStockQuantity = type === '入庫' ? currentQuantity + quantity : currentQuantity - quantity;
       stockSheet.getRange(i + 1, stockIndex + 1).setValue(newStockQuantity);
@@ -484,7 +491,7 @@ function updateStock(productId, locationId, quantity, type) {
       break;
     }
   }
-  
+
   if (!found) {
     newStockQuantity = type === '入庫' ? quantity : 0;
     const stockId = generateUniqueId('S');
@@ -497,7 +504,7 @@ function updateStock(productId, locationId, quantity, type) {
     };
     appendRowToSheet(stockSheet, newStockData);
   }
-  
+
   return newStockQuantity;
 }
 
