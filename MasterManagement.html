@@ -55,11 +55,26 @@
     <div id="content-products" class="bg-white rounded-lg shadow-md p-6">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-xl font-semibold text-gray-900">製品一覧</h2>
-        <button onclick="showProductForm()" 
+        <button onclick="showProductForm()"
                 class="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700">
           新規登録
         </button>
       </div>
+
+      <!-- 絞り込み条件 -->
+      <div class="mb-4 p-4 bg-gray-50 rounded-md">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <input type="text" id="filter-product-id" placeholder="製品IDで絞り込み"
+                 class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <input type="text" id="filter-product-name" placeholder="製品名で絞り込み"
+                 class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <input type="text" id="filter-product-cat1" placeholder="カテゴリ1で絞り込み"
+                 class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <input type="text" id="filter-product-cat2" placeholder="カテゴリ2で絞り込み"
+                 class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+      </div>
+
       <div id="products-list" class="table-container">
         <p class="text-center text-gray-500 py-4">読み込み中...</p>
       </div>
@@ -69,25 +84,53 @@
     <div id="content-users" class="hidden bg-white rounded-lg shadow-md p-6">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-xl font-semibold text-gray-900">ユーザー一覧</h2>
-        <button onclick="showUserForm()" 
+        <button onclick="showUserForm()"
                 class="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700">
           新規登録
         </button>
       </div>
+
+      <!-- 絞り込み条件 -->
+      <div class="mb-4 p-4 bg-gray-50 rounded-md">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <input type="text" id="filter-user-id" placeholder="ユーザーIDで絞り込み"
+                 class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <input type="text" id="filter-user-name" placeholder="ユーザー名で絞り込み"
+                 class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <select id="filter-user-role"
+                  class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">すべての権限</option>
+            <option value="管理者">管理者</option>
+            <option value="現場担当者">現場担当者</option>
+          </select>
+        </div>
+      </div>
+
       <div id="users-list" class="table-container">
         <p class="text-center text-gray-500 py-4">読み込み中...</p>
       </div>
     </div>
-    
+
     <!-- 保管場所マスタ -->
     <div id="content-locations" class="hidden bg-white rounded-lg shadow-md p-6">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-xl font-semibold text-gray-900">保管場所一覧</h2>
-        <button onclick="showLocationForm()" 
+        <button onclick="showLocationForm()"
                 class="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700">
           新規登録
         </button>
       </div>
+
+      <!-- 絞り込み条件 -->
+      <div class="mb-4 p-4 bg-gray-50 rounded-md">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <input type="text" id="filter-location-id" placeholder="保管場所IDで絞り込み"
+                 class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <input type="text" id="filter-location-name" placeholder="場所名で絞り込み"
+                 class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+      </div>
+
       <div id="locations-list" class="table-container">
         <p class="text-center text-gray-500 py-4">読み込み中...</p>
       </div>
@@ -111,9 +154,27 @@
 
   <script>
     let currentTab = 'products';
-    
+    let allProductsData = [];
+    let allUsersData = [];
+    let allLocationsData = [];
+
     window.addEventListener('load', function() {
       loadProducts();
+
+      // 製品フィルターのイベントリスナー
+      ['filter-product-id', 'filter-product-name', 'filter-product-cat1', 'filter-product-cat2'].forEach(id => {
+        document.getElementById(id).addEventListener('input', filterProducts);
+      });
+
+      // ユーザーフィルターのイベントリスナー
+      ['filter-user-id', 'filter-user-name', 'filter-user-role'].forEach(id => {
+        document.getElementById(id).addEventListener('input', filterUsers);
+      });
+
+      // 保管場所フィルターのイベントリスナー
+      ['filter-location-id', 'filter-location-name'].forEach(id => {
+        document.getElementById(id).addEventListener('input', filterLocations);
+      });
     });
     
     function switchTab(tab) {
@@ -147,19 +208,47 @@
     function loadProducts() {
       google.script.run
         .withSuccessHandler(function(data) {
-          displayProducts(data);
+          // 製品名でソート（昇順）
+          data.sort((a, b) => {
+            const nameA = String(a['製品名'] || '');
+            const nameB = String(b['製品名'] || '');
+            return nameA.localeCompare(nameB, 'ja');
+          });
+          allProductsData = data;
+          filterProducts();
         })
         .withFailureHandler(showError)
         .getAllProducts();
     }
-    
+
+    function filterProducts() {
+      const filterId = document.getElementById('filter-product-id').value.toLowerCase();
+      const filterName = document.getElementById('filter-product-name').value.toLowerCase();
+      const filterCat1 = document.getElementById('filter-product-cat1').value.toLowerCase();
+      const filterCat2 = document.getElementById('filter-product-cat2').value.toLowerCase();
+
+      const filtered = allProductsData.filter(item => {
+        const id = String(item['製品ID'] || '').toLowerCase();
+        const name = String(item['製品名'] || '').toLowerCase();
+        const cat1 = String(item['カテゴリ1'] || '').toLowerCase();
+        const cat2 = String(item['カテゴリ2'] || '').toLowerCase();
+
+        return id.indexOf(filterId) !== -1 &&
+               name.indexOf(filterName) !== -1 &&
+               cat1.indexOf(filterCat1) !== -1 &&
+               cat2.indexOf(filterCat2) !== -1;
+      });
+
+      displayProducts(filtered);
+    }
+
     function displayProducts(data) {
       const container = document.getElementById('products-list');
       if (data.length === 0) {
         container.innerHTML = '<p class="text-center text-gray-500 py-4">データがありません</p>';
         return;
       }
-      
+
       container.innerHTML = `
         <table>
           <thead>
@@ -183,9 +272,9 @@
                 <td>¥${formatNumber(item['単価'])}</td>
                 <td>${item['有効'] ? '✓' : '✗'}</td>
                 <td>
-                  <button onclick='editProduct(${JSON.stringify(item)})' 
+                  <button onclick='editProduct(${JSON.stringify(item)})'
                           class="text-blue-600 hover:text-blue-800 mr-2">編集</button>
-                  <button onclick="deleteProduct('${item['製品ID']}')" 
+                  <button onclick="deleteProduct('${item['製品ID']}')"
                           class="text-red-600 hover:text-red-800">削除</button>
                 </td>
               </tr>
@@ -198,14 +287,19 @@
     function showProductForm(product = null) {
       const isEdit = product !== null;
       document.getElementById('modal-title').textContent = isEdit ? '製品編集' : '製品登録';
+
+      // 新規登録時はIDフィールドを非表示（自動発行）、編集時は表示して読み取り専用
+      const idField = isEdit ? `
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">製品ID</label>
+          <input type="text" name="製品ID" value="${product['製品ID']}" readonly
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100">
+        </div>
+      ` : '';
+
       document.getElementById('modal-content').innerHTML = `
         <form id="product-form" class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">製品ID <span class="text-red-500">*</span></label>
-            <input type="text" name="製品ID" value="${product ? product['製品ID'] : ''}" required
-                   ${isEdit ? 'readonly' : ''}
-                   class="w-full px-3 py-2 border border-gray-300 rounded-md ${isEdit ? 'bg-gray-100' : ''}">
-          </div>
+          ${idField}
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">製品名 <span class="text-red-500">*</span></label>
             <input type="text" name="製品名" value="${product ? product['製品名'] : ''}" required
@@ -236,26 +330,30 @@
             <button type="submit" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
               ${isEdit ? '更新' : '登録'}
             </button>
-            <button type="button" onclick="closeModal()" 
+            <button type="button" onclick="closeModal()"
                     class="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400">
               キャンセル
             </button>
           </div>
         </form>
       `;
-      
+
       document.getElementById('product-form').addEventListener('submit', function(e) {
         e.preventDefault();
         const formData = new FormData(e.target);
         const data = {
-          '製品ID': formData.get('製品ID'),
           '製品名': formData.get('製品名'),
           'カテゴリ1': formData.get('カテゴリ1'),
           'カテゴリ2': formData.get('カテゴリ2'),
           '単価': formData.get('単価'),
           '有効': formData.get('有効') ? true : false
         };
-        
+
+        // 編集時のみ製品IDを追加
+        if (isEdit) {
+          data['製品ID'] = formData.get('製品ID');
+        }
+
         showLoading();
         if (isEdit) {
           google.script.run
@@ -269,7 +367,7 @@
             .createProduct(data);
         }
       });
-      
+
       document.getElementById('modal').classList.remove('hidden');
     }
     
@@ -291,12 +389,31 @@
     function loadUsers() {
       google.script.run
         .withSuccessHandler(function(data) {
-          displayUsers(data);
+          allUsersData = data;
+          filterUsers();
         })
         .withFailureHandler(showError)
         .getAllUsers();
     }
-    
+
+    function filterUsers() {
+      const filterId = document.getElementById('filter-user-id').value.toLowerCase();
+      const filterName = document.getElementById('filter-user-name').value.toLowerCase();
+      const filterRole = document.getElementById('filter-user-role').value;
+
+      const filtered = allUsersData.filter(item => {
+        const id = String(item['ユーザーID'] || '').toLowerCase();
+        const name = String(item['ユーザー名'] || '').toLowerCase();
+        const role = String(item['権限'] || '');
+
+        return id.indexOf(filterId) !== -1 &&
+               name.indexOf(filterName) !== -1 &&
+               (filterRole === '' || role === filterRole);
+      });
+
+      displayUsers(filtered);
+    }
+
     function displayUsers(data) {
       const container = document.getElementById('users-list');
       if (data.length === 0) {
@@ -369,7 +486,7 @@
             <label class="block text-sm font-medium text-gray-700 mb-1">権限 <span class="text-red-500">*</span></label>
             <select name="権限" required class="w-full px-3 py-2 border border-gray-300 rounded-md">
               <option value="管理者" ${user && user['権限'] === '管理者' ? 'selected' : ''}>管理者</option>
-              <option value="現場担当" ${user && user['権限'] === '現場担当' ? 'selected' : ''}>現場担当</option>
+              <option value="現場担当者" ${user && user['権限'] === '現場担当者' ? 'selected' : ''}>現場担当者</option>
             </select>
           </div>
           <div>
@@ -437,12 +554,28 @@
     function loadLocations() {
       google.script.run
         .withSuccessHandler(function(data) {
-          displayLocations(data);
+          allLocationsData = data;
+          filterLocations();
         })
         .withFailureHandler(showError)
         .getAllLocations();
     }
-    
+
+    function filterLocations() {
+      const filterId = document.getElementById('filter-location-id').value.toLowerCase();
+      const filterName = document.getElementById('filter-location-name').value.toLowerCase();
+
+      const filtered = allLocationsData.filter(item => {
+        const id = String(item['保管場所ID'] || '').toLowerCase();
+        const name = String(item['場所名'] || '').toLowerCase();
+
+        return id.indexOf(filterId) !== -1 &&
+               name.indexOf(filterName) !== -1;
+      });
+
+      displayLocations(filtered);
+    }
+
     function displayLocations(data) {
       const container = document.getElementById('locations-list');
       if (data.length === 0) {

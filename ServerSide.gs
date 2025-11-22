@@ -375,16 +375,17 @@ function getCurrentStock(productId, locationId) {
     try {
       const ss = getSpreadsheet();
       const sheet = ss.getSheetByName('T_在庫');
-      
+
       // 【修正】nullチェック追加
       if (!sheet) {
         throw new Error('T_在庫シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
-      
+
       const data = getSheetData(sheet);
-      
-      const stock = data.find(row => 
-        row['製品ID'] === productId && row['保管場所ID'] === locationId
+
+      // 【修正】型を統一して比較（String型に変換）
+      const stock = data.find(row =>
+        String(row['製品ID']) === String(productId) && String(row['保管場所ID']) === String(locationId)
       );
       return stock ? Number(stock['現在在庫数']) : 0;
     } catch (error) {
@@ -400,14 +401,19 @@ function registerStockMovement(data) {
     try {
       const user = getCurrentUser();
       if (!user || !user.valid) throw new Error('ログインが必要です');
-      
+
+      // 【修正】入庫時は管理者のみ、出庫は全員OK
+      if (data.type === '入庫' && user.role !== '管理者') {
+        throw new Error('入庫登録は管理者のみ実行できます');
+      }
+
       const validation = validateRequiredFields(data, ['type', 'locationId', 'productId', 'quantity']);
       if (!validation.valid) throw new Error(validation.errors.join(', '));
-      
+
       if (!validateNumber(data.quantity, 1)) {
         throw new Error('数量は1以上の数値を入力してください');
       }
-      
+
       const quantity = Number(data.quantity);
       const ss = getSpreadsheet();
       
@@ -457,25 +463,26 @@ function registerStockMovement(data) {
 function updateStock(productId, locationId, quantity, type) {
   const ss = getSpreadsheet();
   const stockSheet = ss.getSheetByName('T_在庫');
-  
+
   // 【修正】nullチェック追加
   if (!stockSheet) {
     throw new Error('T_在庫シートが見つかりません。スプレッドシートの設定を確認してください。');
   }
-  
+
   const data = stockSheet.getDataRange().getValues();
   const headers = data[0];
-  
+
   const productIdIndex = headers.indexOf('製品ID');
   const locationIdIndex = headers.indexOf('保管場所ID');
   const stockIndex = headers.indexOf('現在在庫数');
   const dateIndex = headers.indexOf('最終更新日時');
-  
+
   let found = false;
   let newStockQuantity;
-  
+
   for (let i = 1; i < data.length; i++) {
-    if (data[i][productIdIndex] === productId && data[i][locationIdIndex] === locationId) {
+    // 【修正】型を統一して比較（String型に変換）
+    if (String(data[i][productIdIndex]) === String(productId) && String(data[i][locationIdIndex]) === String(locationId)) {
       const currentQuantity = Number(data[i][stockIndex]);
       newStockQuantity = type === '入庫' ? currentQuantity + quantity : currentQuantity - quantity;
       stockSheet.getRange(i + 1, stockIndex + 1).setValue(newStockQuantity);
@@ -484,7 +491,7 @@ function updateStock(productId, locationId, quantity, type) {
       break;
     }
   }
-  
+
   if (!found) {
     newStockQuantity = type === '入庫' ? quantity : 0;
     const stockId = generateUniqueId('S');
@@ -497,7 +504,7 @@ function updateStock(productId, locationId, quantity, type) {
     };
     appendRowToSheet(stockSheet, newStockData);
   }
-  
+
   return newStockQuantity;
 }
 
@@ -516,6 +523,7 @@ function getMyStockMovements(filters) {
       const historySheet = ss.getSheetByName('T_入出庫履歴');
       const productSheet = ss.getSheetByName('M_製品');
       const locationSheet = ss.getSheetByName('M_保管場所');
+      const userSheet = ss.getSheetByName('M_ユーザー');
 
       if (!historySheet) {
         throw new Error('T_入出庫履歴シートが見つかりません。');
@@ -526,40 +534,81 @@ function getMyStockMovements(filters) {
       if (!locationSheet) {
         throw new Error('M_保管場所シートが見つかりません。');
       }
+      if (!userSheet) {
+        throw new Error('M_ユーザーシートが見つかりません。');
+      }
 
       const histories = getSheetData(historySheet);
       const products = getSheetData(productSheet);
       const locations = getSheetData(locationSheet);
+      const users = getSheetData(userSheet);
 
-      // 自分の履歴のみフィルター
-      let myHistories = histories.filter(row => row['操作ユーザーID'] === user.userId);
+      // 【修正】管理者は全履歴、現場担当者は自分の履歴のみ
+      let filteredHistories = user.role === '管理者'
+        ? histories
+        : histories.filter(row => row['操作ユーザーID'] === user.userId);
 
       // 絞り込み条件を適用
       if (filters) {
         if (filters.type && filters.type !== '') {
-          myHistories = myHistories.filter(row => row['入出庫タイプ'] === filters.type);
+          filteredHistories = filteredHistories.filter(row => row['入出庫タイプ'] === filters.type);
         }
         if (filters.locationId && filters.locationId !== '') {
-          myHistories = myHistories.filter(row => String(row['保管場所ID']) === String(filters.locationId));
+          filteredHistories = filteredHistories.filter(row => String(row['保管場所ID']) === String(filters.locationId));
         }
         if (filters.category1 && filters.category1 !== '') {
-          myHistories = myHistories.filter(row => {
+          filteredHistories = filteredHistories.filter(row => {
             const product = products.find(p => String(p['製品ID']) === String(row['製品ID']));
             return product && product['カテゴリ1'] === filters.category1;
           });
         }
         if (filters.category2 && filters.category2 !== '') {
-          myHistories = myHistories.filter(row => {
+          filteredHistories = filteredHistories.filter(row => {
             const product = products.find(p => String(p['製品ID']) === String(row['製品ID']));
             return product && product['カテゴリ2'] === filters.category2;
           });
         }
+        // 【追加】発生日時の絞り込み（開始日）
+        if (filters.dateFrom && filters.dateFrom !== '') {
+          const fromDate = new Date(filters.dateFrom);
+          fromDate.setHours(0, 0, 0, 0);
+          filteredHistories = filteredHistories.filter(row => {
+            if (!row['発生日時']) return false;
+            const rowDate = new Date(row['発生日時']);
+            return rowDate >= fromDate;
+          });
+        }
+        // 【追加】発生日時の絞り込み（終了日）
+        if (filters.dateTo && filters.dateTo !== '') {
+          const toDate = new Date(filters.dateTo);
+          toDate.setHours(23, 59, 59, 999);
+          filteredHistories = filteredHistories.filter(row => {
+            if (!row['発生日時']) return false;
+            const rowDate = new Date(row['発生日時']);
+            return rowDate <= toDate;
+          });
+        }
+        // 【追加】現場名の絞り込み（部分一致）
+        if (filters.siteName && filters.siteName !== '') {
+          filteredHistories = filteredHistories.filter(row => {
+            const siteName = String(row['現場名'] || '');
+            return siteName.indexOf(filters.siteName) !== -1;
+          });
+        }
+        // 【追加】お客様名の絞り込み（部分一致）
+        if (filters.customerName && filters.customerName !== '') {
+          filteredHistories = filteredHistories.filter(row => {
+            const customerName = String(row['客先'] || '');
+            return customerName.indexOf(filters.customerName) !== -1;
+          });
+        }
       }
 
-      // 製品名と場所名を追加
-      const result = myHistories.map(history => {
+      // 製品名、場所名、ユーザー名を追加
+      const result = filteredHistories.map(history => {
         const product = products.find(p => String(p['製品ID']) === String(history['製品ID']));
         const location = locations.find(l => String(l['保管場所ID']) === String(history['保管場所ID']));
+        const operationUser = users.find(u => String(u['ユーザーID']) === String(history['操作ユーザーID']));
 
         return {
           履歴ID: String(history['履歴ID'] || ''),
@@ -574,7 +623,8 @@ function getMyStockMovements(filters) {
           保管場所ID: String(history['保管場所ID'] || ''),
           場所名: location ? String(location['場所名'] || '') : '',
           発生日時: history['発生日時'] ? formatDateTime(history['発生日時']) : '',
-          操作ユーザーID: String(history['操作ユーザーID'] || '')
+          操作ユーザーID: String(history['操作ユーザーID'] || ''),
+          操作ユーザー名: operationUser ? String(operationUser['ユーザー名'] || '') : ''
         };
       });
 
@@ -1459,22 +1509,30 @@ function createProduct(data) {
   return loggable('createProduct', arguments, function() {
     try {
       requireAdminPermission();
-      const validation = validateRequiredFields(data, ['製品ID', '製品名', 'カテゴリ1', 'カテゴリ2']);
+      const validation = validateRequiredFields(data, ['製品名', 'カテゴリ1', 'カテゴリ2']);
       if (!validation.valid) throw new Error(validation.errors.join(', '));
-      
+
       const ss = getSpreadsheet();
       const sheet = ss.getSheetByName('M_製品');
-      
+
       // 【修正】nullチェック追加
       if (!sheet) {
         throw new Error('M_製品シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
-      
-      const existing = findRowByColumn(sheet, '製品ID', data['製品ID']);
-      if (existing) throw new Error('製品ID「' + data['製品ID'] + '」は既に存在します');
-      
+
+      // 【追加】製品IDを自動発行（既存の最大ID+1）
+      const allData = getSheetData(sheet);
+      let maxId = 0;
+      allData.forEach(row => {
+        const id = parseInt(String(row['製品ID'] || '0'));
+        if (!isNaN(id) && id > maxId) {
+          maxId = id;
+        }
+      });
+      const newProductId = String(maxId + 1);
+
       const productData = {
-        '製品ID': data['製品ID'],
+        '製品ID': newProductId,
         '製品名': data['製品名'],
         'カテゴリ1': data['カテゴリ1'],
         'カテゴリ2': data['カテゴリ2'],
@@ -1482,7 +1540,7 @@ function createProduct(data) {
         '単価': data['単価'] || 0
       };
       appendRowToSheet(sheet, productData);
-      return { success: true, message: '製品を登録しました' };
+      return { success: true, message: '製品を登録しました（ID: ' + newProductId + '）' };
     } catch (error) {
       Logger.log('createProduct Error: ' + error.toString());
       return { success: false, error: error.toString() };
@@ -1562,25 +1620,37 @@ function createUser(data) {
   return loggable('createUser', arguments, function() {
     try {
       requireAdminPermission();
-      const validation = validateRequiredFields(data, ['ユーザーID', 'ユーザー名', 'メールアドレス', '権限']);
+      const validation = validateRequiredFields(data, ['ユーザー名', 'メールアドレス', '権限']);
       if (!validation.valid) throw new Error(validation.errors.join(', '));
-      
+
       const ss = getSpreadsheet();
       const sheet = ss.getSheetByName('M_ユーザー');
-      
+
       // 【修正】nullチェック追加
       if (!sheet) {
         throw new Error('M_ユーザーシートが見つかりません。スプレッドシートの設定を確認してください。');
       }
-      
-      const existing = findRowByColumn(sheet, 'ユーザーID', data['ユーザーID']);
-      if (existing) throw new Error('ユーザーID「' + data['ユーザーID'] + '」は既に存在します');
-      
+
       const existingEmail = findRowByColumn(sheet, 'メールアドレス', data['メールアドレス']);
       if (existingEmail) throw new Error('メールアドレス「' + data['メールアドレス'] + '」は既に登録されています');
-      
+
+      // 【追加】ユーザーIDを自動発行（U001形式）
+      const allData = getSheetData(sheet);
+      let maxNum = 0;
+      allData.forEach(row => {
+        const id = String(row['ユーザーID'] || '');
+        const match = id.match(/^U(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1]);
+          if (!isNaN(num) && num > maxNum) {
+            maxNum = num;
+          }
+        }
+      });
+      const newUserId = 'U' + String(maxNum + 1).padStart(3, '0');
+
       const userData = {
-        'ユーザーID': data['ユーザーID'],
+        'ユーザーID': newUserId,
         '部門': data['部門'] || '',
         'ユーザー名': data['ユーザー名'],
         'メールアドレス': data['メールアドレス'],
@@ -1588,7 +1658,7 @@ function createUser(data) {
         '有効': data['有効'] !== undefined ? data['有効'] : true
       };
       appendRowToSheet(sheet, userData);
-      return { success: true, message: 'ユーザーを登録しました' };
+      return { success: true, message: 'ユーザーを登録しました（ID: ' + newUserId + '）' };
     } catch (error) {
       Logger.log('createUser Error: ' + error.toString());
       return { success: false, error: error.toString() };
@@ -1668,26 +1738,38 @@ function createLocation(data) {
   return loggable('createLocation', arguments, function() {
     try {
       requireAdminPermission();
-      const validation = validateRequiredFields(data, ['保管場所ID', '場所名']);
+      const validation = validateRequiredFields(data, ['場所名']);
       if (!validation.valid) throw new Error(validation.errors.join(', '));
-      
+
       const ss = getSpreadsheet();
       const sheet = ss.getSheetByName('M_保管場所');
-      
+
       // 【修正】nullチェック追加
       if (!sheet) {
         throw new Error('M_保管場所シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
-      
-      const existing = findRowByColumn(sheet, '保管場所ID', data['保管場所ID']);
-      if (existing) throw new Error('保管場所ID「' + data['保管場所ID'] + '」は既に存在します');
-      
+
+      // 【追加】保管場所IDを自動発行（P001形式）
+      const allData = getSheetData(sheet);
+      let maxNum = 0;
+      allData.forEach(row => {
+        const id = String(row['保管場所ID'] || '');
+        const match = id.match(/^P(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1]);
+          if (!isNaN(num) && num > maxNum) {
+            maxNum = num;
+          }
+        }
+      });
+      const newLocationId = 'P' + String(maxNum + 1).padStart(3, '0');
+
       const locationData = {
-        '保管場所ID': data['保管場所ID'],
+        '保管場所ID': newLocationId,
         '場所名': data['場所名']
       };
       appendRowToSheet(sheet, locationData);
-      return { success: true, message: '保管場所を登録しました' };
+      return { success: true, message: '保管場所を登録しました（ID: ' + newLocationId + '）' };
     } catch (error) {
       Logger.log('createLocation Error: ' + error.toString());
       return { success: false, error: error.toString() };
