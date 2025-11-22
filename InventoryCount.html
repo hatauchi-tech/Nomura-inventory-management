@@ -108,6 +108,8 @@
 
       <div class="mb-4 text-sm text-gray-600">
         <p>※ カウント数を入力した製品のみ登録されます</p>
+        <p>※ 複数箇所の在庫を計算する場合は「+」ボタンで入力欄を追加できます（マイナス値も入力可）</p>
+        <p class="text-red-600">※ 合計がマイナスになる場合は登録できません</p>
       </div>
 
       <div class="table-container">
@@ -307,8 +309,7 @@
                   <div class="flex items-center gap-2" id="input-row-${index}-0">
                     <input type="number"
                            class="count-input flex-1 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                           min="0"
-                           placeholder="カウント数"
+                           placeholder="カウント数（-可）"
                            data-index="${index}"
                            data-input-id="0"
                            oninput="updateTotal(${index})">
@@ -322,7 +323,7 @@
                 </div>
                 <!-- 合計表示 -->
                 <div class="pt-2 border-t border-gray-300">
-                  <span class="font-semibold text-blue-600">
+                  <span id="total-display-${index}" class="font-semibold text-blue-600">
                     合計: <span id="total-${index}">0</span>
                   </span>
                 </div>
@@ -347,8 +348,7 @@
       newRow.innerHTML = `
         <input type="number"
                class="count-input flex-1 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-               min="0"
-               placeholder="カウント数"
+               placeholder="カウント数（-可）"
                data-index="${index}"
                data-input-id="${inputId}"
                oninput="updateTotal(${index})">
@@ -378,23 +378,39 @@
       // すべての入力欄から値を取得
       const inputs = container.querySelectorAll('.count-input');
       let total = 0;
+      let hasInput = false;
 
       inputs.forEach(input => {
-        const value = parseInt(input.value) || 0;
-        if (value > 0) {
-          total += value;
+        const value = parseInt(input.value);
+        if (!isNaN(value)) {
+          total += value;  // マイナス値も含めて合計
+          hasInput = true;
         }
       });
 
       // 合計を表示
       const totalDisplay = document.getElementById(`total-${index}`);
+      const totalContainer = document.getElementById(`total-display-${index}`);
       if (totalDisplay) {
         totalDisplay.textContent = formatNumber(total);
+      }
+
+      // 合計がマイナスの場合は赤色で警告表示
+      if (totalContainer) {
+        if (total < 0) {
+          totalContainer.className = 'font-semibold text-red-600';
+          totalDisplay.textContent = formatNumber(total) + ' (マイナスのため登録不可)';
+        } else if (hasInput && total === 0) {
+          totalContainer.className = 'font-semibold text-orange-600';
+        } else {
+          totalContainer.className = 'font-semibold text-blue-600';
+        }
       }
 
       // データマップを更新
       if (countDataMap[index]) {
         countDataMap[index].total = total;
+        countDataMap[index].hasInput = hasInput;
       }
     }
 
@@ -426,17 +442,33 @@
 
       // 入力された合計値を収集
       const dataList = [];
+      const negativeProducts = [];
+
       currentProducts.forEach((product, index) => {
         // 各製品の合計値を取得
-        if (countDataMap[index] && countDataMap[index].total > 0) {
-          dataList.push({
-            inventoryId: inventoryId,
-            locationId: locationId,
-            productId: product['製品ID'],
-            count: countDataMap[index].total
-          });
+        if (countDataMap[index] && countDataMap[index].hasInput) {
+          const total = countDataMap[index].total;
+
+          // 合計がマイナスの製品をチェック
+          if (total < 0) {
+            negativeProducts.push(product['製品名']);
+          } else if (total >= 0) {
+            // 0以上の場合のみ登録対象（0も登録可能に変更）
+            dataList.push({
+              inventoryId: inventoryId,
+              locationId: locationId,
+              productId: product['製品ID'],
+              count: total
+            });
+          }
         }
       });
+
+      // マイナスの製品がある場合はエラー
+      if (negativeProducts.length > 0) {
+        showError(`以下の製品の合計がマイナスになっています。マイナスでは登録できません：\n${negativeProducts.join('、')}`);
+        return;
+      }
 
       if (dataList.length === 0) {
         showError('カウント数が入力されていません');
