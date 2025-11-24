@@ -307,22 +307,14 @@
               <div class="count-container" id="count-container-${index}">
                 <!-- 入力欄グループ -->
                 <div class="space-y-2 mb-2" id="inputs-${index}">
-                  <div class="flex items-center gap-1" id="input-row-${index}-0">
+                  <div class="flex items-center gap-2" id="input-row-${index}-0">
                     <div class="flex-1">
-                      <div class="flex">
-                        <input type="text"
-                               inputmode="numeric"
-                               id="count-input-${index}-0"
-                               class="count-input flex-1 px-2 py-1 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                               placeholder="例: 48×18"
-                               data-index="${index}"
-                               data-input-id="0"
-                               oninput="updateTotal(${index})">
-                        <button type="button"
-                                onclick="insertMultiply(${index}, 0)"
-                                class="px-2 py-1 bg-gray-200 hover:bg-gray-300 border border-l-0 border-gray-300 rounded-r-md text-gray-700 font-bold"
-                                title="×を挿入">×</button>
-                      </div>
+                      <input type="text"
+                             class="count-input w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                             placeholder="例: 48×18 または 48"
+                             data-index="${index}"
+                             data-input-id="0"
+                             oninput="updateTotal(${index})">
                       <span class="calc-result text-xs text-gray-500" id="calc-result-${index}-0"></span>
                     </div>
                     <button type="button"
@@ -355,31 +347,23 @@
       const inputsContainer = document.getElementById(`inputs-${index}`);
 
       const newRow = document.createElement('div');
-      newRow.className = 'flex items-center gap-1';
+      newRow.className = 'flex items-center gap-2';
       newRow.id = `input-row-${index}-${inputId}`;
       newRow.innerHTML = `
         <div class="flex-1">
-          <div class="flex">
-            <input type="text"
-                   inputmode="numeric"
-                   id="count-input-${index}-${inputId}"
-                   class="count-input flex-1 px-2 py-1 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                   placeholder="例: 48×18"
-                   data-index="${index}"
-                   data-input-id="${inputId}"
-                   oninput="updateTotal(${index})">
-            <button type="button"
-                    onclick="insertMultiply(${index}, ${inputId})"
-                    class="px-2 py-1 bg-gray-200 hover:bg-gray-300 border border-l-0 border-gray-300 rounded-r-md text-gray-700 font-bold"
-                    title="×を挿入">×</button>
-          </div>
+          <input type="text"
+                 class="count-input w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                 placeholder="例: 48×18 または 48"
+                 data-index="${index}"
+                 data-input-id="${inputId}"
+                 oninput="updateTotal(${index})">
           <span class="calc-result text-xs text-gray-500" id="calc-result-${index}-${inputId}"></span>
         </div>
         <button type="button"
                 onclick="removeCountInput(${index}, ${inputId})"
                 class="text-red-600 hover:text-red-700 text-xl font-bold px-2 py-1 rounded hover:bg-red-50"
                 title="この入力欄を削除">
-          -
+          ×
         </button>
       `;
 
@@ -390,23 +374,6 @@
       const row = document.getElementById(`input-row-${index}-${inputId}`);
       if (row) {
         row.remove();
-        updateTotal(index);
-      }
-    }
-
-    /**
-     * 入力欄に「×」を挿入する（スマートフォン対応）
-     */
-    function insertMultiply(index, inputId) {
-      const input = document.getElementById(`count-input-${index}-${inputId}`);
-      if (input) {
-        const cursorPos = input.selectionStart;
-        const currentValue = input.value;
-        const newValue = currentValue.slice(0, cursorPos) + '×' + currentValue.slice(cursorPos);
-        input.value = newValue;
-        // カーソルを×の後ろに移動
-        input.setSelectionRange(cursorPos + 1, cursorPos + 1);
-        input.focus();
         updateTotal(index);
       }
     }
