@@ -769,6 +769,108 @@ function deleteStockMovement(historyId) {
   });
 }
 
+/**
+ * 入出庫履歴の製品を変更する（在庫も連動して再計算）
+ * @param {string} historyId - 履歴ID
+ * @param {string} newProductId - 新しい製品ID
+ * @returns {Object} 結果オブジェクト
+ */
+function changeProductInHistory(historyId, newProductId) {
+  return loggable('changeProductInHistory', arguments, function() {
+    try {
+      const user = getCurrentUser();
+      if (!user || !user.valid) throw new Error('ログインが必要です');
+
+      if (!historyId || !newProductId) {
+        throw new Error('履歴IDと新しい製品IDは必須です');
+      }
+
+      const ss = getSpreadsheet();
+      const historySheet = ss.getSheetByName('T_入出庫履歴');
+      const productSheet = ss.getSheetByName('M_製品');
+
+      if (!historySheet) {
+        throw new Error('T_入出庫履歴シートが見つかりません。');
+      }
+      if (!productSheet) {
+        throw new Error('M_製品シートが見つかりません。');
+      }
+
+      // 既存の履歴を取得
+      const existingHistory = findRowByColumn(historySheet, '履歴ID', historyId);
+      if (!existingHistory) {
+        throw new Error('指定された履歴が見つかりません');
+      }
+
+      // 自分の履歴かチェック（管理者は全員分編集可能）
+      if (user.role !== '管理者' && existingHistory['操作ユーザーID'] !== user.userId) {
+        throw new Error('他のユーザーの履歴は編集できません');
+      }
+
+      // 新しい製品が存在するか確認
+      const newProduct = findRowByColumn(productSheet, '製品ID', newProductId);
+      if (!newProduct) {
+        throw new Error('指定された製品が見つかりません');
+      }
+      if (newProduct['有効'] !== true) {
+        throw new Error('指定された製品は無効です');
+      }
+
+      const oldProductId = existingHistory['製品ID'];
+      const locationId = existingHistory['保管場所ID'];
+      const quantity = Number(existingHistory['数量']);
+      const movementType = existingHistory['入出庫タイプ'];
+
+      // 同じ製品の場合は何もしない
+      if (String(oldProductId) === String(newProductId)) {
+        return { success: true, message: '製品は変更されませんでした（同じ製品です）' };
+      }
+
+      // 在庫の再計算
+      // 1. 旧製品の在庫を戻す（入庫なら減算、出庫なら加算）
+      const revertType = movementType === '入庫' ? '出庫' : '入庫';
+      updateStock(oldProductId, locationId, quantity, revertType);
+
+      // 2. 新製品の在庫を更新（元の入出庫タイプで適用）
+      // 出庫の場合は在庫チェック
+      if (movementType === '出庫') {
+        const newProductStock = getCurrentStock(newProductId, locationId);
+        if (newProductStock < quantity) {
+          // 在庫不足の場合は旧製品の在庫を元に戻す
+          updateStock(oldProductId, locationId, quantity, movementType);
+          throw new Error(`新製品の在庫不足: 現在在庫数${newProductStock}に対して${quantity}の出庫はできません`);
+        }
+      }
+      updateStock(newProductId, locationId, quantity, movementType);
+
+      // 履歴の製品IDを更新
+      const updatedHistory = {
+        '履歴ID': historyId,
+        '製品ID': newProductId,
+        '数量': quantity,
+        '入出庫タイプ': movementType,
+        '現場名': existingHistory['現場名'],
+        '客先': existingHistory['客先'],
+        '発生日時': existingHistory['発生日時'],
+        '操作ユーザーID': existingHistory['操作ユーザーID'],
+        '保管場所ID': locationId
+      };
+      updateSheetRow(historySheet, existingHistory._rowIndex, updatedHistory);
+
+      return {
+        success: true,
+        message: '製品を変更しました（在庫も再計算されました）',
+        oldProductId: oldProductId,
+        newProductId: newProductId
+      };
+
+    } catch (error) {
+      Logger.log('changeProductInHistory Error: ' + error.toString());
+      return { success: false, error: error.toString() };
+    }
+  });
+}
+
 // ========================================
 // 棚卸管理
 // ========================================
