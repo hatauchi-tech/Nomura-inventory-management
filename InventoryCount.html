@@ -27,14 +27,14 @@
     <!-- 絞り込み条件 -->
     <div class="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6">
       <h2 class="text-lg sm:text-xl font-semibold text-gray-900 mb-3 sm:mb-4">絞り込み条件</h2>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 form-grid">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 form-grid">
         <!-- 棚卸イベント選択 -->
         <div>
           <label for="inventory-event" class="block text-sm font-medium text-gray-700 mb-2">
             棚卸イベント <span class="text-red-500">*</span>
           </label>
           <select id="inventory-event" required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  class="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
             <option value="">選択してください</option>
           </select>
         </div>
@@ -45,7 +45,7 @@
             保管場所 <span class="text-red-500">*</span>
           </label>
           <select id="location" required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  class="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
             <option value="">選択してください</option>
           </select>
         </div>
@@ -56,7 +56,7 @@
             カテゴリ1
           </label>
           <select id="category1"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  class="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
             <option value="">すべて</option>
           </select>
         </div>
@@ -67,7 +67,7 @@
             カテゴリ2
           </label>
           <select id="category2"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  class="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
             <option value="">すべて</option>
           </select>
         </div>
@@ -75,7 +75,7 @@
 
       <div class="mt-4">
         <button onclick="loadProducts()"
-                class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                class="w-full bg-blue-600 text-white py-4 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base font-semibold">
           製品一覧を表示
         </button>
       </div>
@@ -94,13 +94,13 @@
     <div id="products-area" class="hidden bg-white rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6">
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
         <h2 class="text-lg sm:text-xl font-semibold text-gray-900">製品一覧</h2>
-        <div class="flex space-x-2 w-full sm:w-auto btn-group">
+        <div class="flex gap-3 w-full sm:w-auto">
           <button onclick="clearAllCounts()"
-                  class="flex-1 sm:flex-none bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400">
+                  class="flex-1 sm:flex-none bg-gray-200 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-300 font-medium">
             クリア
           </button>
           <button onclick="batchRegister()"
-                  class="flex-1 sm:flex-none bg-green-600 text-white px-4 sm:px-6 py-2 rounded-md hover:bg-green-700 font-semibold">
+                  class="flex-1 sm:flex-none bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 font-semibold">
             一括登録
           </button>
         </div>
@@ -134,9 +134,9 @@
         </table>
       </div>
 
-      <div class="mt-4">
+      <div class="mt-6">
         <button onclick="batchRegister()"
-                class="w-full bg-green-600 text-white py-3 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 font-semibold text-base">
+                class="w-full bg-green-600 text-white py-4 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 font-semibold text-lg">
           一括登録
         </button>
       </div>
@@ -346,33 +346,33 @@
 
           // モバイル用: カード
           const card = document.createElement('div');
-          card.className = 'mobile-card';
+          card.className = 'mobile-card p-4';
           card.innerHTML = `
-            <div class="font-semibold text-gray-900 mb-1">${product['製品名']}</div>
-            <div class="text-xs text-gray-500 mb-3">${product['カテゴリ1']} / ${product['カテゴリ2']}</div>
+            <div class="font-semibold text-gray-900 text-base mb-1">${product['製品名']}</div>
+            <div class="text-sm text-gray-500 mb-4">${product['カテゴリ1']} / ${product['カテゴリ2']}</div>
             <div class="count-container" id="count-container-mobile-${index}">
-              <div class="space-y-2 mb-2" id="inputs-mobile-${index}">
-                <div class="flex items-center gap-2" id="input-row-mobile-${index}-0">
+              <div class="space-y-3 mb-3" id="inputs-mobile-${index}">
+                <div class="flex items-center gap-3" id="input-row-mobile-${index}-0">
                   <div class="flex-1">
                     <input type="text"
-                           class="count-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                           class="count-input w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
                            placeholder="例: 48×18"
                            data-index="${index}"
                            data-input-id="0"
                            data-mobile="true"
                            oninput="updateTotal(${index})">
-                    <span class="calc-result text-xs text-gray-500" id="calc-result-mobile-${index}-0"></span>
+                    <span class="calc-result text-sm text-gray-500 mt-1 block" id="calc-result-mobile-${index}-0"></span>
                   </div>
                   <button type="button"
                           onclick="addCountInputMobile(${index})"
-                          class="text-green-600 hover:text-green-700 text-2xl font-bold px-3 py-1 rounded hover:bg-green-50"
+                          class="bg-green-100 text-green-700 hover:bg-green-200 text-2xl font-bold w-12 h-12 rounded-lg flex items-center justify-center"
                           title="入力欄を追加">
                     +
                   </button>
                 </div>
               </div>
-              <div class="pt-2 border-t border-gray-200">
-                <span id="total-display-mobile-${index}" class="font-semibold text-blue-600">
+              <div class="pt-3 border-t border-gray-200">
+                <span id="total-display-mobile-${index}" class="font-semibold text-blue-600 text-lg">
                   合計: <span id="total-mobile-${index}">0</span>
                 </span>
               </div>
@@ -429,22 +429,22 @@
       const inputsContainer = document.getElementById(`inputs-mobile-${index}`);
 
       const newRow = document.createElement('div');
-      newRow.className = 'flex items-center gap-2';
+      newRow.className = 'flex items-center gap-3';
       newRow.id = `input-row-mobile-${index}-${inputId}`;
       newRow.innerHTML = `
         <div class="flex-1">
           <input type="text"
-                 class="count-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                 class="count-input w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
                  placeholder="例: 48×18"
                  data-index="${index}"
                  data-input-id="${inputId}"
                  data-mobile="true"
                  oninput="updateTotal(${index})">
-          <span class="calc-result text-xs text-gray-500" id="calc-result-mobile-${index}-${inputId}"></span>
+          <span class="calc-result text-sm text-gray-500 mt-1 block" id="calc-result-mobile-${index}-${inputId}"></span>
         </div>
         <button type="button"
                 onclick="removeCountInputMobile(${index}, ${inputId})"
-                class="text-red-600 hover:text-red-700 text-2xl font-bold px-3 py-1 rounded hover:bg-red-50"
+                class="bg-red-100 text-red-700 hover:bg-red-200 text-2xl font-bold w-12 h-12 rounded-lg flex items-center justify-center"
                 title="この入力欄を削除">
           ×
         </button>
