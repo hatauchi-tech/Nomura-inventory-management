@@ -8,15 +8,102 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
-  
-  .table-container { overflow-x: auto; }
+
+  /* テーブル基本スタイル */
+  .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   table { width: 100%; border-collapse: collapse; }
   th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
   th { background-color: #f9fafb; font-weight: 600; color: #374151; }
   tr:hover { background-color: #f9fafb; }
-  
+
+  /* モバイル用テーブル */
   @media (max-width: 640px) {
     th, td { padding: 8px; font-size: 14px; }
+
+    /* カード形式テーブル */
+    .mobile-card-table thead { display: none; }
+    .mobile-card-table tbody tr {
+      display: block;
+      margin-bottom: 1rem;
+      border: 1px solid #e5e7eb;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      background: white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .mobile-card-table tbody td {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .mobile-card-table tbody td:last-child { border-bottom: none; }
+    .mobile-card-table tbody td::before {
+      content: attr(data-label);
+      font-weight: 600;
+      color: #374151;
+      margin-right: 1rem;
+      flex-shrink: 0;
+    }
+    .mobile-card-table tbody td > * { text-align: right; }
+  }
+
+  /* モバイル用ヘッダー */
+  @media (max-width: 640px) {
+    .mobile-header h1 { font-size: 1rem !important; }
+    .mobile-header button { padding: 0.5rem 0.75rem; font-size: 0.875rem; }
+  }
+
+  /* モバイル用ページタイトル */
+  @media (max-width: 640px) {
+    .page-title { font-size: 1.5rem !important; }
+  }
+
+  /* モバイル用ボタン */
+  @media (max-width: 640px) {
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .btn-group button { width: 100%; }
+  }
+
+  /* モバイル用フォーム */
+  @media (max-width: 640px) {
+    .form-grid { grid-template-columns: 1fr !important; }
+    select, input { font-size: 16px !important; } /* iOSズーム防止 */
+  }
+
+  /* モバイル用カード */
+  .mobile-card {
+    background: white;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border: 1px solid #e5e7eb;
+  }
+
+  /* タッチフレンドリーなボタン */
+  @media (max-width: 640px) {
+    button, .btn {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
+
+  /* スクロールヒント */
+  .scroll-hint {
+    display: none;
+    text-align: center;
+    color: #6b7280;
+    font-size: 0.75rem;
+    padding: 0.5rem;
+  }
+  @media (max-width: 640px) {
+    .scroll-hint { display: block; }
   }
 </style>
 

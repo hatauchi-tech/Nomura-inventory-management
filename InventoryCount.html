@@ -7,27 +7,27 @@
   <?!= include('Common'); ?>
 </head>
 <body class="bg-gray-100">
-  <header class="bg-white shadow-md">
-    <div class="container mx-auto px-4 py-4">
+  <header class="bg-white shadow-md mobile-header">
+    <div class="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
       <div class="flex items-center justify-between">
-        <h1 class="text-xl font-bold text-gray-900">在庫管理システム</h1>
+        <h1 class="text-lg sm:text-xl font-bold text-gray-900">在庫管理システム</h1>
         <button onclick="goHome()"
-                class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
-          ホームに戻る
+                class="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-md hover:bg-blue-700 text-sm sm:text-base">
+          ホーム
         </button>
       </div>
     </div>
   </header>
 
-  <div class="container mx-auto px-4 py-8">
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-gray-900">棚卸カウント入力（一括登録）</h1>
+  <div class="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
+    <div class="mb-4 sm:mb-8">
+      <h1 class="text-xl sm:text-3xl font-bold text-gray-900 page-title">棚卸カウント入力</h1>
     </div>
 
     <!-- 絞り込み条件 -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-      <h2 class="text-xl font-semibold text-gray-900 mb-4">絞り込み条件</h2>
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6">
+      <h2 class="text-lg sm:text-xl font-semibold text-gray-900 mb-3 sm:mb-4">絞り込み条件</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 form-grid">
         <!-- 棚卸イベント選択 -->
         <div>
           <label for="inventory-event" class="block text-sm font-medium text-gray-700 mb-2">
@@ -91,29 +91,35 @@
     </div>
 
     <!-- 製品一覧＆カウント入力エリア -->
-    <div id="products-area" class="hidden bg-white rounded-lg shadow-md p-6 mb-6">
-      <div class="flex justify-between items-center mb-4">
-        <h2 class="text-xl font-semibold text-gray-900">製品一覧</h2>
-        <div class="flex space-x-2">
+    <div id="products-area" class="hidden bg-white rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+        <h2 class="text-lg sm:text-xl font-semibold text-gray-900">製品一覧</h2>
+        <div class="flex space-x-2 w-full sm:w-auto btn-group">
           <button onclick="clearAllCounts()"
-                  class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400">
+                  class="flex-1 sm:flex-none bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400">
             クリア
           </button>
           <button onclick="batchRegister()"
-                  class="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 font-semibold">
+                  class="flex-1 sm:flex-none bg-green-600 text-white px-4 sm:px-6 py-2 rounded-md hover:bg-green-700 font-semibold">
             一括登録
           </button>
         </div>
       </div>
 
-      <div class="mb-4 text-sm text-gray-600">
+      <div class="mb-4 text-xs sm:text-sm text-gray-600 space-y-1">
         <p>※ カウント数を入力した製品のみ登録されます</p>
-        <p>※ 複数箇所の在庫を計算する場合は「+」ボタンで入力欄を追加できます（マイナス値も入力可）</p>
-        <p class="text-blue-600 font-medium">※ 「48×18」のように入り数×梱包数の形式で入力すると自動計算されます</p>
-        <p class="text-red-600">※ 合計がマイナスになる場合は登録できません</p>
+        <p>※ 「+」ボタンで入力欄を追加できます</p>
+        <p class="text-blue-600 font-medium">※ 「48×18」形式で自動計算</p>
+        <p class="text-red-600">※ 合計がマイナスの場合は登録不可</p>
       </div>
 
-      <div class="table-container">
+      <!-- モバイル用: カード形式 -->
+      <div id="products-cards" class="sm:hidden space-y-3">
+        <!-- JavaScriptで動的に生成 -->
+      </div>
+
+      <!-- PC用: テーブル形式 -->
+      <div class="table-container hidden sm:block">
         <table>
           <thead>
             <tr>
@@ -130,7 +136,7 @@
 
       <div class="mt-4">
         <button onclick="batchRegister()"
-                class="w-full bg-green-600 text-white py-3 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 font-semibold">
+                class="w-full bg-green-600 text-white py-3 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 font-semibold text-base">
           一括登録
         </button>
       </div>
@@ -284,11 +290,14 @@
 
     function displayProducts(products) {
       const tbody = document.getElementById('products-tbody');
+      const cardsContainer = document.getElementById('products-cards');
       tbody.innerHTML = '';
+      cardsContainer.innerHTML = '';
       countDataMap = {}; // データマップをリセット
 
       if (products.length === 0) {
         tbody.innerHTML = '<tr><td colspan="4" class="text-center text-gray-500">製品が見つかりません</td></tr>';
+        cardsContainer.innerHTML = '<p class="text-center text-gray-500 py-4">製品が見つかりません</p>';
       } else {
         products.forEach((product, index) => {
           // カウントデータを初期化
@@ -298,6 +307,7 @@
             total: 0
           };
 
+          // PC用: テーブル行
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td>${product['製品名']}</td>
@@ -305,7 +315,6 @@
             <td>${product['カテゴリ2']}</td>
             <td>
               <div class="count-container" id="count-container-${index}">
-                <!-- 入力欄グループ -->
                 <div class="space-y-2 mb-2" id="inputs-${index}">
                   <div class="flex items-center gap-2" id="input-row-${index}-0">
                     <div class="flex-1">
@@ -325,7 +334,6 @@
                     </button>
                   </div>
                 </div>
-                <!-- 合計表示 -->
                 <div class="pt-2 border-t border-gray-300">
                   <span id="total-display-${index}" class="font-semibold text-blue-600">
                     合計: <span id="total-${index}">0</span>
@@ -335,6 +343,42 @@
             </td>
           `;
           tbody.appendChild(tr);
+
+          // モバイル用: カード
+          const card = document.createElement('div');
+          card.className = 'mobile-card';
+          card.innerHTML = `
+            <div class="font-semibold text-gray-900 mb-1">${product['製品名']}</div>
+            <div class="text-xs text-gray-500 mb-3">${product['カテゴリ1']} / ${product['カテゴリ2']}</div>
+            <div class="count-container" id="count-container-mobile-${index}">
+              <div class="space-y-2 mb-2" id="inputs-mobile-${index}">
+                <div class="flex items-center gap-2" id="input-row-mobile-${index}-0">
+                  <div class="flex-1">
+                    <input type="text"
+                           class="count-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                           placeholder="例: 48×18"
+                           data-index="${index}"
+                           data-input-id="0"
+                           data-mobile="true"
+                           oninput="updateTotal(${index})">
+                    <span class="calc-result text-xs text-gray-500" id="calc-result-mobile-${index}-0"></span>
+                  </div>
+                  <button type="button"
+                          onclick="addCountInputMobile(${index})"
+                          class="text-green-600 hover:text-green-700 text-2xl font-bold px-3 py-1 rounded hover:bg-green-50"
+                          title="入力欄を追加">
+                    +
+                  </button>
+                </div>
+              </div>
+              <div class="pt-2 border-t border-gray-200">
+                <span id="total-display-mobile-${index}" class="font-semibold text-blue-600">
+                  合計: <span id="total-mobile-${index}">0</span>
+                </span>
+              </div>
+            </div>
+          `;
+          cardsContainer.appendChild(card);
         });
       }
 
@@ -372,6 +416,45 @@
 
     function removeCountInput(index, inputId) {
       const row = document.getElementById(`input-row-${index}-${inputId}`);
+      if (row) {
+        row.remove();
+        updateTotal(index);
+      }
+    }
+
+    // モバイル用: 入力欄追加
+    function addCountInputMobile(index) {
+      countInputIdCounter++;
+      const inputId = countInputIdCounter;
+      const inputsContainer = document.getElementById(`inputs-mobile-${index}`);
+
+      const newRow = document.createElement('div');
+      newRow.className = 'flex items-center gap-2';
+      newRow.id = `input-row-mobile-${index}-${inputId}`;
+      newRow.innerHTML = `
+        <div class="flex-1">
+          <input type="text"
+                 class="count-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                 placeholder="例: 48×18"
+                 data-index="${index}"
+                 data-input-id="${inputId}"
+                 data-mobile="true"
+                 oninput="updateTotal(${index})">
+          <span class="calc-result text-xs text-gray-500" id="calc-result-mobile-${index}-${inputId}"></span>
+        </div>
+        <button type="button"
+                onclick="removeCountInputMobile(${index}, ${inputId})"
+                class="text-red-600 hover:text-red-700 text-2xl font-bold px-3 py-1 rounded hover:bg-red-50"
+                title="この入力欄を削除">
+          ×
+        </button>
+      `;
+
+      inputsContainer.appendChild(newRow);
+    }
+
+    function removeCountInputMobile(index, inputId) {
+      const row = document.getElementById(`input-row-mobile-${index}-${inputId}`);
       if (row) {
         row.remove();
         updateTotal(index);
@@ -423,73 +506,75 @@
     }
 
     function updateTotal(index) {
-      const container = document.getElementById(`count-container-${index}`);
-      if (!container) return;
+      // PC用とモバイル用の両方を処理
+      const containers = [
+        { container: document.getElementById(`count-container-${index}`), prefix: '' },
+        { container: document.getElementById(`count-container-mobile-${index}`), prefix: 'mobile-' }
+      ];
 
-      // すべての入力欄から値を取得
-      const inputs = container.querySelectorAll('.count-input');
       let total = 0;
       let hasInput = false;
       let hasError = false;
 
-      inputs.forEach(input => {
-        const inputId = input.dataset.inputId;
-        const resultSpan = document.getElementById(`calc-result-${index}-${inputId}`);
-        const parsed = parseCountInput(input.value);
+      containers.forEach(({ container, prefix }) => {
+        if (!container) return;
 
-        if (parsed.error) {
-          // エラーの場合
-          hasError = true;
-          if (resultSpan) {
-            resultSpan.textContent = parsed.error;
-            resultSpan.className = 'calc-result text-xs text-red-500';
-          }
-        } else if (parsed.value !== null) {
-          // 有効な値がある場合
-          total += parsed.value;
-          hasInput = true;
+        const inputs = container.querySelectorAll('.count-input');
+        inputs.forEach(input => {
+          const inputId = input.dataset.inputId;
+          const resultSpan = document.getElementById(`calc-result-${prefix}${index}-${inputId}`);
+          const parsed = parseCountInput(input.value);
 
-          if (resultSpan) {
-            if (parsed.formula) {
-              // 数式の場合は計算結果を表示
-              resultSpan.textContent = `= ${formatNumber(parsed.value)}`;
-              resultSpan.className = 'calc-result text-xs text-green-600 font-medium';
-            } else {
-              // 単純な数値の場合は何も表示しない
+          if (parsed.error) {
+            hasError = true;
+            if (resultSpan) {
+              resultSpan.textContent = parsed.error;
+              resultSpan.className = 'calc-result text-xs text-red-500';
+            }
+          } else if (parsed.value !== null) {
+            total += parsed.value;
+            hasInput = true;
+
+            if (resultSpan) {
+              if (parsed.formula) {
+                resultSpan.textContent = `= ${formatNumber(parsed.value)}`;
+                resultSpan.className = 'calc-result text-xs text-green-600 font-medium';
+              } else {
+                resultSpan.textContent = '';
+                resultSpan.className = 'calc-result text-xs text-gray-500';
+              }
+            }
+          } else {
+            if (resultSpan) {
               resultSpan.textContent = '';
               resultSpan.className = 'calc-result text-xs text-gray-500';
             }
           }
-        } else {
-          // 空の場合
-          if (resultSpan) {
-            resultSpan.textContent = '';
-            resultSpan.className = 'calc-result text-xs text-gray-500';
+        });
+      });
+
+      // 両方のビューの合計を更新
+      ['', 'mobile-'].forEach(prefix => {
+        const totalDisplay = document.getElementById(`total-${prefix}${index}`);
+        const totalContainer = document.getElementById(`total-display-${prefix}${index}`);
+        if (totalDisplay) {
+          totalDisplay.textContent = formatNumber(total);
+        }
+
+        if (totalContainer) {
+          if (hasError) {
+            totalContainer.className = 'font-semibold text-red-600';
+            if (totalDisplay) totalDisplay.textContent = formatNumber(total) + ' (エラー)';
+          } else if (total < 0) {
+            totalContainer.className = 'font-semibold text-red-600';
+            if (totalDisplay) totalDisplay.textContent = formatNumber(total) + ' (マイナス)';
+          } else if (hasInput && total === 0) {
+            totalContainer.className = 'font-semibold text-orange-600';
+          } else {
+            totalContainer.className = 'font-semibold text-blue-600';
           }
         }
       });
-
-      // 合計を表示
-      const totalDisplay = document.getElementById(`total-${index}`);
-      const totalContainer = document.getElementById(`total-display-${index}`);
-      if (totalDisplay) {
-        totalDisplay.textContent = formatNumber(total);
-      }
-
-      // 合計がマイナスの場合は赤色で警告表示
-      if (totalContainer) {
-        if (hasError) {
-          totalContainer.className = 'font-semibold text-red-600';
-          totalDisplay.textContent = formatNumber(total) + ' (入力エラーあり)';
-        } else if (total < 0) {
-          totalContainer.className = 'font-semibold text-red-600';
-          totalDisplay.textContent = formatNumber(total) + ' (マイナスのため登録不可)';
-        } else if (hasInput && total === 0) {
-          totalContainer.className = 'font-semibold text-orange-600';
-        } else {
-          totalContainer.className = 'font-semibold text-blue-600';
-        }
-      }
 
       // データマップを更新
       if (countDataMap[index]) {
@@ -501,16 +586,18 @@
 
     function clearAllCounts() {
       currentProducts.forEach((product, index) => {
-        const container = document.getElementById(`count-container-${index}`);
-        if (container) {
-          // すべての入力欄をクリア
-          const inputs = container.querySelectorAll('.count-input');
-          inputs.forEach(input => {
-            input.value = '';
-          });
-          // 合計をリセット
-          updateTotal(index);
-        }
+        // PC用とモバイル用の両方をクリア
+        ['', 'mobile-'].forEach(prefix => {
+          const container = document.getElementById(`count-container-${prefix}${index}`);
+          if (container) {
+            const inputs = container.querySelectorAll('.count-input');
+            inputs.forEach(input => {
+              input.value = '';
+            });
+          }
+        });
+        // 合計をリセット
+        updateTotal(index);
       });
     }
 

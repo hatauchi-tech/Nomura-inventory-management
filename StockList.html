@@ -7,26 +7,26 @@
   <?!= include('Common'); ?>
 </head>
 <body class="bg-gray-100">
-  <header class="bg-white shadow-md">
-    <div class="container mx-auto px-4 py-4">
+  <header class="bg-white shadow-md mobile-header">
+    <div class="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
       <div class="flex items-center justify-between">
-        <h1 class="text-xl font-bold text-gray-900">在庫管理システム</h1>
-        <button onclick="goHome()" 
-                class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
-          ホームに戻る
+        <h1 class="text-lg sm:text-xl font-bold text-gray-900">在庫管理システム</h1>
+        <button onclick="goHome()"
+                class="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-md hover:bg-blue-700 text-sm sm:text-base">
+          ホーム
         </button>
       </div>
     </div>
   </header>
-  
-  <div class="container mx-auto px-4 py-8">
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-gray-900">在庫一覧・検索</h1>
+
+  <div class="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
+    <div class="mb-4 sm:mb-8">
+      <h1 class="text-xl sm:text-3xl font-bold text-gray-900 page-title">在庫一覧・検索</h1>
     </div>
-    
+
     <!-- 表示タイプ選択 -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-      <div class="flex space-x-4">
+    <div class="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6">
+      <div class="flex flex-wrap gap-2 sm:space-x-4 sm:gap-0">
         <button onclick="showAllStocks()" 
                 class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
           全在庫表示

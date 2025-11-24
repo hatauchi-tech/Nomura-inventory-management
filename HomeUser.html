@@ -7,25 +7,22 @@
   <?!= include('Common'); ?>
 </head>
 <body class="bg-gray-100">
-  <header class="bg-white shadow-md">
-    <div class="container mx-auto px-4 py-4">
+  <header class="bg-white shadow-md mobile-header">
+    <div class="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
       <div class="flex items-center justify-between">
-        <h1 class="text-xl font-bold text-gray-900">在庫管理システム</h1>
-        <button onclick="goHome()" 
-                class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
-          ホームに戻る
-        </button>
+        <h1 class="text-lg sm:text-xl font-bold text-gray-900">在庫管理システム</h1>
+        <span class="text-xs sm:text-sm text-gray-600"><?= userName ?></span>
       </div>
     </div>
   </header>
-  
-  <div class="container mx-auto px-4 py-8">
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-gray-900">ホーム</h1>
-      <p class="mt-2 text-gray-600">ようこそ、<?= userName ?>さん（<?= userRole ?>）</p>
+
+  <div class="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
+    <div class="mb-4 sm:mb-8">
+      <h1 class="text-xl sm:text-3xl font-bold text-gray-900 page-title">ホーム</h1>
+      <p class="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600">ようこそ、<?= userName ?>さん（<?= userRole ?>）</p>
     </div>
-    
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
       <a href="#" onclick="navigateTo('stock-movement'); return false;"
          class="block bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6">
         <div class="flex items-center justify-between mb-4">
