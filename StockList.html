@@ -156,12 +156,6 @@
     function displayAllStocks(data) {
       const content = document.getElementById('result-content');
 
-      // デバッグログ追加
-      console.log('displayAllStocks called with data:', data);
-      console.log('data type:', typeof data);
-      console.log('data is Array:', Array.isArray(data));
-      console.log('data length:', data ? data.length : 'data is null/undefined');
-
       if (!data || !Array.isArray(data) || data.length === 0) {
         content.innerHTML = '<p class="text-gray-500 text-center py-8">在庫データがありません</p>';
         return;
