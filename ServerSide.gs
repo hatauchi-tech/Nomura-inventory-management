@@ -306,6 +306,12 @@ function sendLowStockAlert(productId, locationId, currentStock, optimalStock) {
 
       // 担当部署の管理者を検索
       const users = getSheetData(userSheet);
+      Logger.log('sendLowStockAlert: 全ユーザー数: ' + users.length);
+
+      // デバッグ: 担当部署と一致するユーザーを確認
+      const departmentUsers = users.filter(u => u['部門'] === department);
+      Logger.log('sendLowStockAlert: 担当部署「' + department + '」のユーザー数: ' + departmentUsers.length);
+
       const managers = users.filter(u =>
         u['部門'] === department &&
         u['権限'] === '管理者' &&
@@ -313,8 +319,17 @@ function sendLowStockAlert(productId, locationId, currentStock, optimalStock) {
         u['メールアドレス'] && u['メールアドレス'] !== ''
       );
 
+      Logger.log('sendLowStockAlert: 検索条件 - 部署: ' + department + ', 権限: 管理者, 有効: true, メールアドレス: 必須');
+      Logger.log('sendLowStockAlert: 該当する管理者数: ' + managers.length);
+
       if (managers.length === 0) {
         Logger.log('sendLowStockAlert: 担当部署の管理者が見つかりません - 部署: ' + department);
+        // デバッグ: 部署が一致するユーザーの詳細を表示
+        if (departmentUsers.length > 0) {
+          departmentUsers.forEach(u => {
+            Logger.log('  - ユーザー: ' + u['ユーザー名'] + ', 権限: ' + u['権限'] + ', 有効: ' + u['有効'] + ', メール: ' + u['メールアドレス']);
+          });
+        }
         return;
       }
 
@@ -346,18 +361,22 @@ function sendLowStockAlert(productId, locationId, currentStock, optimalStock) {
 `;
 
       // 各管理者にメール送信
-      managers.forEach(manager => {
+      Logger.log('sendLowStockAlert: メール送信を開始します - 送信先: ' + managers.length + '名');
+      managers.forEach((manager, index) => {
         try {
+          Logger.log('sendLowStockAlert: [' + (index + 1) + '/' + managers.length + '] メール送信中 - 宛先: ' + manager['メールアドレス'] + ', 名前: ' + manager['ユーザー名']);
           MailApp.sendEmail({
             to: manager['メールアドレス'],
             subject: subject,
             body: body
           });
-          Logger.log('sendLowStockAlert: メール送信完了 - 宛先: ' + manager['メールアドレス']);
+          Logger.log('sendLowStockAlert: [' + (index + 1) + '/' + managers.length + '] メール送信完了 - 宛先: ' + manager['メールアドレス']);
         } catch (error) {
-          Logger.log('sendLowStockAlert: メール送信失敗 - 宛先: ' + manager['メールアドレス'] + ', エラー: ' + error.toString());
+          Logger.log('sendLowStockAlert: [' + (index + 1) + '/' + managers.length + '] メール送信失敗 - 宛先: ' + manager['メールアドレス'] + ', エラー: ' + error.toString());
         }
       });
+
+      Logger.log('sendLowStockAlert: メール送信処理完了');
 
     } catch (error) {
       Logger.log('sendLowStockAlert Error: ' + error.toString());
@@ -551,16 +570,29 @@ function registerStockMovement(data) {
 
       // 【追加】出庫時に適正在庫数をチェックし、下回った場合にメール通知
       if (data.type === '出庫') {
+        Logger.log('registerStockMovement: 出庫処理 - 製品ID: ' + data.productId + ', 新在庫数: ' + newStock);
         const productSheet = ss.getSheetByName('M_製品');
         if (productSheet) {
           const product = findRowByColumn(productSheet, '製品ID', data.productId);
           if (product) {
             const optimalStock = Number(product['適正在庫数'] || 0);
+            const department = product['担当部署'] || '';
+            Logger.log('registerStockMovement: 製品情報取得 - 製品名: ' + product['製品名'] + ', 適正在庫数: ' + optimalStock + ', 担当部署: ' + department);
+
             if (optimalStock > 0 && newStock < optimalStock) {
               // 適正在庫数を下回った場合、メール通知を送信
+              Logger.log('registerStockMovement: 在庫アラート条件満たす - メール通知送信開始');
               sendLowStockAlert(data.productId, data.locationId, newStock, optimalStock);
+            } else if (optimalStock > 0) {
+              Logger.log('registerStockMovement: 適正在庫数は設定されているが、まだ下回っていない - 新在庫数: ' + newStock + ', 適正在庫数: ' + optimalStock);
+            } else {
+              Logger.log('registerStockMovement: 適正在庫数が設定されていない（0または未設定）');
             }
+          } else {
+            Logger.log('registerStockMovement: 製品情報が取得できませんでした - 製品ID: ' + data.productId);
           }
+        } else {
+          Logger.log('registerStockMovement: M_製品シートが取得できませんでした');
         }
       }
 
