@@ -264,6 +264,108 @@ function requireAdminPermission() {
 }
 
 // ========================================
+// 通知機能
+// ========================================
+
+/**
+ * 在庫が適正在庫数を下回った際にメール通知を送信
+ * @param {string} productId - 製品ID
+ * @param {string} locationId - 保管場所ID
+ * @param {number} currentStock - 現在在庫数
+ * @param {number} optimalStock - 適正在庫数
+ */
+function sendLowStockAlert(productId, locationId, currentStock, optimalStock) {
+  return loggable('sendLowStockAlert', arguments, function() {
+    try {
+      const ss = getSpreadsheet();
+      const productSheet = ss.getSheetByName('M_製品');
+      const locationSheet = ss.getSheetByName('M_保管場所');
+      const userSheet = ss.getSheetByName('M_ユーザー');
+
+      if (!productSheet || !locationSheet || !userSheet) {
+        Logger.log('sendLowStockAlert: 必要なシートが見つかりません');
+        return;
+      }
+
+      // 製品情報を取得
+      const product = findRowByColumn(productSheet, '製品ID', productId);
+      if (!product) {
+        Logger.log('sendLowStockAlert: 製品が見つかりません - 製品ID: ' + productId);
+        return;
+      }
+
+      const department = product['担当部署'];
+      if (!department || department === '') {
+        Logger.log('sendLowStockAlert: 担当部署が設定されていません - 製品ID: ' + productId);
+        return;
+      }
+
+      // 保管場所情報を取得
+      const location = findRowByColumn(locationSheet, '保管場所ID', locationId);
+      const locationName = location ? location['場所名'] : locationId;
+
+      // 担当部署の管理者を検索
+      const users = getSheetData(userSheet);
+      const managers = users.filter(u =>
+        u['部門'] === department &&
+        u['権限'] === '管理者' &&
+        u['有効'] === true &&
+        u['メールアドレス'] && u['メールアドレス'] !== ''
+      );
+
+      if (managers.length === 0) {
+        Logger.log('sendLowStockAlert: 担当部署の管理者が見つかりません - 部署: ' + department);
+        return;
+      }
+
+      // メール本文を作成
+      const subject = '【在庫アラート】適正在庫数を下回りました';
+      const body = `
+在庫管理システムからの通知
+
+以下の製品の在庫が適正在庫数を下回りました。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+製品名: ${product['製品名']}
+製品ID: ${productId}
+カテゴリ: ${product['カテゴリ1']} / ${product['カテゴリ2']}
+保管場所: ${locationName}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+現在在庫数: ${currentStock}
+適正在庫数: ${optimalStock}
+不足数: ${optimalStock - currentStock}
+
+担当部署: ${department}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+在庫の補充をご検討ください。
+
+※このメールは自動送信されています。
+`;
+
+      // 各管理者にメール送信
+      managers.forEach(manager => {
+        try {
+          MailApp.sendEmail({
+            to: manager['メールアドレス'],
+            subject: subject,
+            body: body
+          });
+          Logger.log('sendLowStockAlert: メール送信完了 - 宛先: ' + manager['メールアドレス']);
+        } catch (error) {
+          Logger.log('sendLowStockAlert: メール送信失敗 - 宛先: ' + manager['メールアドレス'] + ', エラー: ' + error.toString());
+        }
+      });
+
+    } catch (error) {
+      Logger.log('sendLowStockAlert Error: ' + error.toString());
+    }
+  });
+}
+
+// ========================================
 // 入出庫管理
 // ========================================
 
@@ -444,9 +546,24 @@ function registerStockMovement(data) {
         '保管場所ID': data.locationId
       };
       appendRowToSheet(historySheet, historyData);
-      
+
       const newStock = updateStock(data.productId, data.locationId, quantity, data.type);
-      
+
+      // 【追加】出庫時に適正在庫数をチェックし、下回った場合にメール通知
+      if (data.type === '出庫') {
+        const productSheet = ss.getSheetByName('M_製品');
+        if (productSheet) {
+          const product = findRowByColumn(productSheet, '製品ID', data.productId);
+          if (product) {
+            const optimalStock = Number(product['適正在庫数'] || 0);
+            if (optimalStock > 0 && newStock < optimalStock) {
+              // 適正在庫数を下回った場合、メール通知を送信
+              sendLowStockAlert(data.productId, data.locationId, newStock, optimalStock);
+            }
+          }
+        }
+      }
+
       return {
         success: true,
         message: data.type + 'を登録しました',
@@ -1195,7 +1312,8 @@ function verifyInventoryCounts(inventoryId) {
         const item = grouped[key];
         if (item.counts.length > 1) {
           const firstCount = item.counts[0].count;
-          const hasDiscrepancy = item.counts.some(c => c.count !== firstCount);
+          // 【修正】型変換を明示的に行い、数値として比較
+          const hasDiscrepancy = item.counts.some(c => Number(c.count) !== Number(firstCount));
 
           if (hasDiscrepancy) {
             const detail = details.find(d =>
@@ -1459,6 +1577,8 @@ function getAllStocks() {
           保管場所ID: String(stock['保管場所ID'] || ''),
           場所名: location ? String(location['場所名'] || '') : '',
           現在在庫数: Number(stock['現在在庫数'] || 0),
+          適正在庫数: product ? Number(product['適正在庫数'] || 0) : 0,
+          担当部署: product ? String(product['担当部署'] || '') : '',
           最終更新日時: stock['最終更新日時'] ? formatDateTime(stock['最終更新日時']) : ''
         };
       });
@@ -1639,7 +1759,9 @@ function createProduct(data) {
         'カテゴリ1': data['カテゴリ1'],
         'カテゴリ2': data['カテゴリ2'],
         '有効': data['有効'] !== undefined ? data['有効'] : true,
-        '単価': data['単価'] || 0
+        '単価': data['単価'] || 0,
+        '適正在庫数': data['適正在庫数'] || 0,
+        '担当部署': data['担当部署'] || ''
       };
       appendRowToSheet(sheet, productData);
       return { success: true, message: '製品を登録しました（ID: ' + newProductId + '）' };
@@ -1672,7 +1794,9 @@ function updateProduct(productId, data) {
         'カテゴリ1': data['カテゴリ1'] || existing['カテゴリ1'],
         'カテゴリ2': data['カテゴリ2'] || existing['カテゴリ2'],
         '有効': data['有効'] !== undefined ? data['有効'] : existing['有効'],
-        '単価': data['単価'] !== undefined ? data['単価'] : existing['単価']
+        '単価': data['単価'] !== undefined ? data['単価'] : existing['単価'],
+        '適正在庫数': data['適正在庫数'] !== undefined ? data['適正在庫数'] : (existing['適正在庫数'] || 0),
+        '担当部署': data['担当部署'] !== undefined ? data['担当部署'] : (existing['担当部署'] || '')
       };
       updateSheetRow(sheet, existing._rowIndex, updateData);
       return { success: true, message: '製品を更新しました' };
