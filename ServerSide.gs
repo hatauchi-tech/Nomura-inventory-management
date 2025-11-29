@@ -1226,13 +1226,18 @@ function registerInventoryCountBatch(dataList) {
 
       dataList.forEach((data, index) => {
         try {
-          // 必須項目チェック
-          const validation = validateRequiredFields(data, ['inventoryId', 'locationId', 'productId', 'count']);
+          // 必須項目チェック（countは0を許容するため除外）
+          const validation = validateRequiredFields(data, ['inventoryId', 'locationId', 'productId']);
           if (!validation.valid) {
             throw new Error(`行${index + 1}: ${validation.errors.join(', ')}`);
           }
 
-          // 数値チェック
+          // カウント数の存在チェック（0も許容）
+          if (data.count === undefined || data.count === null || data.count === '') {
+            throw new Error(`行${index + 1}: カウント数は必須項目です`);
+          }
+
+          // 数値チェック（0以上）
           if (!validateNumber(data.count, 0)) {
             throw new Error(`行${index + 1}: カウント数は0以上の数値を入力してください`);
           }
