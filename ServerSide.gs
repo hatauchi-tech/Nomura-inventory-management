@@ -145,7 +145,7 @@ function findRowByColumn(sheet, columnName, value) {
   if (columnIndex === -1) return null;
   
   for (let i = 1; i < data.length; i++) {
-    if (data[i][columnIndex] === value) {
+    if (String(data[i][columnIndex]) === String(value)) {
       const row = { _rowIndex: i + 1 };
       for (let j = 0; j < headers.length; j++) {
         row[headers[j]] = data[i][j];
@@ -170,7 +170,7 @@ function findAllRowsByColumn(sheet, columnName, value) {
   if (columnIndex === -1) return results;
   
   for (let i = 1; i < data.length; i++) {
-    if (data[i][columnIndex] === value) {
+    if (String(data[i][columnIndex]) === String(value)) {
       const row = { _rowIndex: i + 1 };
       for (let j = 0; j < headers.length; j++) {
         row[headers[j]] = data[i][j];
