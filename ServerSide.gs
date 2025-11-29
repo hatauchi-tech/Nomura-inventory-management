@@ -89,7 +89,6 @@ function formatDateTime(date) {
 }
 
 function getSheetData(sheet) {
-  // 【修正】nullチェック追加
   if (!sheet) {
     throw new Error('シートが見つかりません');
   }
@@ -111,7 +110,6 @@ function getSheetData(sheet) {
 }
 
 function appendRowToSheet(sheet, rowData) {
-  // 【修正】nullチェック追加
   if (!sheet) {
     throw new Error('シートが見つかりません');
   }
@@ -122,7 +120,6 @@ function appendRowToSheet(sheet, rowData) {
 }
 
 function updateSheetRow(sheet, rowIndex, rowData) {
-  // 【修正】nullチェック追加
   if (!sheet) {
     throw new Error('シートが見つかりません');
   }
@@ -133,7 +130,6 @@ function updateSheetRow(sheet, rowIndex, rowData) {
 }
 
 function findRowByColumn(sheet, columnName, value) {
-  // 【修正】nullチェック追加
   if (!sheet) {
     throw new Error('シートが見つかりません');
   }
@@ -145,7 +141,7 @@ function findRowByColumn(sheet, columnName, value) {
   if (columnIndex === -1) return null;
   
   for (let i = 1; i < data.length; i++) {
-    if (data[i][columnIndex] === value) {
+    if (String(data[i][columnIndex]) === String(value)) {
       const row = { _rowIndex: i + 1 };
       for (let j = 0; j < headers.length; j++) {
         row[headers[j]] = data[i][j];
@@ -157,7 +153,6 @@ function findRowByColumn(sheet, columnName, value) {
 }
 
 function findAllRowsByColumn(sheet, columnName, value) {
-  // 【修正】nullチェック追加
   if (!sheet) {
     throw new Error('シートが見つかりません');
   }
@@ -170,7 +165,7 @@ function findAllRowsByColumn(sheet, columnName, value) {
   if (columnIndex === -1) return results;
   
   for (let i = 1; i < data.length; i++) {
-    if (data[i][columnIndex] === value) {
+    if (String(data[i][columnIndex]) === String(value)) {
       const row = { _rowIndex: i + 1 };
       for (let j = 0; j < headers.length; j++) {
         row[headers[j]] = data[i][j];
@@ -213,8 +208,7 @@ function getCurrentUser() {
       const ss = getSpreadsheet();
       const userSheet = ss.getSheetByName('M_ユーザー');
       
-      // 【修正】nullチェック追加
-      if (!userSheet) {
+          if (!userSheet) {
         Logger.log('M_ユーザーシートが見つかりません');
         throw new Error('M_ユーザーシートが見つかりません。スプレッドシートの設定を確認してください。');
       }
@@ -264,6 +258,101 @@ function requireAdminPermission() {
 }
 
 // ========================================
+// 通知機能
+// ========================================
+
+/**
+ * 在庫が適正在庫数を下回った際にメール通知を送信
+ * @param {string} productId - 製品ID
+ * @param {string} locationId - 保管場所ID
+ * @param {number} currentStock - 現在在庫数
+ * @param {number} optimalStock - 適正在庫数
+ */
+function sendLowStockAlert(productId, locationId, currentStock, optimalStock) {
+  return loggable('sendLowStockAlert', arguments, function() {
+    try {
+      const ss = getSpreadsheet();
+      const productSheet = ss.getSheetByName('M_製品');
+      const locationSheet = ss.getSheetByName('M_保管場所');
+      const userSheet = ss.getSheetByName('M_ユーザー');
+
+      if (!productSheet || !locationSheet || !userSheet) {
+        Logger.log('sendLowStockAlert: 必要なシートが見つかりません');
+        return;
+      }
+
+      const product = findRowByColumn(productSheet, '製品ID', productId);
+      if (!product) {
+        Logger.log('sendLowStockAlert: 製品が見つかりません - 製品ID: ' + productId);
+        return;
+      }
+
+      const department = product['担当部署'];
+      if (!department || department === '') {
+        return;
+      }
+
+      const location = findRowByColumn(locationSheet, '保管場所ID', locationId);
+      const locationName = location ? location['場所名'] : locationId;
+
+      const users = getSheetData(userSheet);
+      const managers = users.filter(u =>
+        u['部門'] === department &&
+        u['権限'] === '管理者' &&
+        u['有効'] === true &&
+        u['メールアドレス'] && u['メールアドレス'] !== ''
+      );
+
+      if (managers.length === 0) {
+        Logger.log('sendLowStockAlert: 担当部署の管理者が見つかりません - 部署: ' + department);
+        return;
+      }
+
+      const subject = '【在庫アラート】適正在庫数を下回りました';
+      const body = `
+在庫管理システムからの通知
+
+以下の製品の在庫が適正在庫数を下回りました。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+製品名: ${product['製品名']}
+製品ID: ${productId}
+カテゴリ: ${product['カテゴリ1']} / ${product['カテゴリ2']}
+保管場所: ${locationName}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+現在在庫数: ${currentStock}
+適正在庫数: ${optimalStock}
+不足数: ${optimalStock - currentStock}
+
+担当部署: ${department}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+在庫の補充をご検討ください。
+
+※このメールは自動送信されています。
+`;
+
+      managers.forEach(manager => {
+        try {
+          MailApp.sendEmail({
+            to: manager['メールアドレス'],
+            subject: subject,
+            body: body
+          });
+        } catch (error) {
+          Logger.log('sendLowStockAlert: メール送信失敗 - 宛先: ' + manager['メールアドレス'] + ', エラー: ' + error.toString());
+        }
+      });
+
+    } catch (error) {
+      Logger.log('sendLowStockAlert Error: ' + error.toString());
+    }
+  });
+}
+
+// ========================================
 // 入出庫管理
 // ========================================
 
@@ -274,8 +363,7 @@ function getStorageLocations() {
       const ss = getSpreadsheet();
       const sheet = ss.getSheetByName('M_保管場所');
       
-      // 【修正】nullチェック追加
-      if (!sheet) {
+          if (!sheet) {
         throw new Error('M_保管場所シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
       
@@ -294,8 +382,7 @@ function getCategory1List() {
       const ss = getSpreadsheet();
       const sheet = ss.getSheetByName('M_製品');
       
-      // 【修正】nullチェック追加
-      if (!sheet) {
+          if (!sheet) {
         throw new Error('M_製品シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
       
@@ -322,8 +409,7 @@ function getCategory2List(category1) {
       const ss = getSpreadsheet();
       const sheet = ss.getSheetByName('M_製品');
       
-      // 【修正】nullチェック追加
-      if (!sheet) {
+          if (!sheet) {
         throw new Error('M_製品シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
       
@@ -350,8 +436,7 @@ function getProductsByCategory(category1, category2) {
       const ss = getSpreadsheet();
       const sheet = ss.getSheetByName('M_製品');
       
-      // 【修正】nullチェック追加
-      if (!sheet) {
+          if (!sheet) {
         throw new Error('M_製品シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
       
@@ -376,8 +461,7 @@ function getCurrentStock(productId, locationId) {
       const ss = getSpreadsheet();
       const sheet = ss.getSheetByName('T_在庫');
 
-      // 【修正】nullチェック追加
-      if (!sheet) {
+          if (!sheet) {
         throw new Error('T_在庫シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
 
@@ -426,8 +510,7 @@ function registerStockMovement(data) {
       
       const historySheet = ss.getSheetByName('T_入出庫履歴');
       
-      // 【修正】nullチェック追加
-      if (!historySheet) {
+          if (!historySheet) {
         throw new Error('T_入出庫履歴シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
       
@@ -444,9 +527,22 @@ function registerStockMovement(data) {
         '保管場所ID': data.locationId
       };
       appendRowToSheet(historySheet, historyData);
-      
+
       const newStock = updateStock(data.productId, data.locationId, quantity, data.type);
-      
+
+      if (data.type === '出庫') {
+        const productSheet = ss.getSheetByName('M_製品');
+        if (productSheet) {
+          const product = findRowByColumn(productSheet, '製品ID', data.productId);
+          if (product) {
+            const optimalStock = Number(product['適正在庫数'] || 0);
+            if (optimalStock > 0 && newStock < optimalStock) {
+              sendLowStockAlert(data.productId, data.locationId, newStock, optimalStock);
+            }
+          }
+        }
+      }
+
       return {
         success: true,
         message: data.type + 'を登録しました',
@@ -464,7 +560,6 @@ function updateStock(productId, locationId, quantity, type) {
   const ss = getSpreadsheet();
   const stockSheet = ss.getSheetByName('T_在庫');
 
-  // 【修正】nullチェック追加
   if (!stockSheet) {
     throw new Error('T_在庫シートが見つかりません。スプレッドシートの設定を確認してください。');
   }
@@ -506,6 +601,78 @@ function updateStock(productId, locationId, quantity, type) {
   }
 
   return newStockQuantity;
+}
+
+/**
+ * 過去の入出庫履歴を登録する（在庫連動なし）
+ * 棚卸後の理論在庫調整用
+ * @param {Object} data - 登録データ
+ * @returns {Object} 結果オブジェクト
+ */
+function registerPastStockMovement(data) {
+  return loggable('registerPastStockMovement', arguments, function() {
+    try {
+      requireAdminPermission(); // 管理者のみ実行可能
+
+      const user = getCurrentUser();
+      if (!user || !user.valid) throw new Error('ログインが必要です');
+
+      // 必須項目チェック
+      const validation = validateRequiredFields(data, ['type', 'locationId', 'productId', 'quantity', 'occurrenceDate']);
+      if (!validation.valid) throw new Error(validation.errors.join(', '));
+
+      // 数量チェック
+      if (!validateNumber(data.quantity, 1)) {
+        throw new Error('数量は1以上の数値を入力してください');
+      }
+
+      // 日付チェック（過去3ヶ月以内）
+      const occurrenceDate = new Date(data.occurrenceDate);
+      const today = new Date();
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(today.getMonth() - 3);
+
+      if (occurrenceDate > today) {
+        throw new Error('未来の日付は指定できません');
+      }
+      if (occurrenceDate < threeMonthsAgo) {
+        throw new Error('過去3ヶ月以内の日付のみ指定できます');
+      }
+
+      const quantity = Number(data.quantity);
+      const ss = getSpreadsheet();
+      const historySheet = ss.getSheetByName('T_入出庫履歴');
+
+      if (!historySheet) {
+        throw new Error('T_入出庫履歴シートが見つかりません。スプレッドシートの設定を確認してください。');
+      }
+
+      // 履歴レコードを作成（在庫連動なし）
+      const historyId = generateUniqueId('H');
+      const historyData = {
+        '履歴ID': historyId,
+        '製品ID': data.productId,
+        '数量': quantity,
+        '入出庫タイプ': data.type + '(過去調整)', // タイプに「(過去調整)」を付加
+        '現場名': data.siteName || '過去データ調整',
+        '客先': data.customerName || '',
+        '発生日時': occurrenceDate,
+        '操作ユーザーID': user.userId,
+        '保管場所ID': data.locationId
+      };
+      appendRowToSheet(historySheet, historyData);
+
+      return {
+        success: true,
+        message: '過去の' + data.type + 'を登録しました（在庫連動なし）',
+        historyId: historyId,
+        warning: 'この操作は現在の在庫数には影響しません。理論在庫の記録のみ追加されました。'
+      };
+    } catch (error) {
+      Logger.log('registerPastStockMovement Error: ' + error.toString());
+      return { success: false, error: error.toString() };
+    }
+  });
 }
 
 // ========================================
@@ -568,7 +735,6 @@ function getMyStockMovements(filters) {
             return product && product['カテゴリ2'] === filters.category2;
           });
         }
-        // 【追加】発生日時の絞り込み（開始日）
         if (filters.dateFrom && filters.dateFrom !== '') {
           const fromDate = new Date(filters.dateFrom);
           fromDate.setHours(0, 0, 0, 0);
@@ -578,7 +744,6 @@ function getMyStockMovements(filters) {
             return rowDate >= fromDate;
           });
         }
-        // 【追加】発生日時の絞り込み（終了日）
         if (filters.dateTo && filters.dateTo !== '') {
           const toDate = new Date(filters.dateTo);
           toDate.setHours(23, 59, 59, 999);
@@ -588,14 +753,12 @@ function getMyStockMovements(filters) {
             return rowDate <= toDate;
           });
         }
-        // 【追加】現場名の絞り込み（部分一致）
         if (filters.siteName && filters.siteName !== '') {
           filteredHistories = filteredHistories.filter(row => {
             const siteName = String(row['現場名'] || '');
             return siteName.indexOf(filters.siteName) !== -1;
           });
         }
-        // 【追加】お客様名の絞り込み（部分一致）
         if (filters.customerName && filters.customerName !== '') {
           filteredHistories = filteredHistories.filter(row => {
             const customerName = String(row['客先'] || '');
@@ -886,8 +1049,7 @@ function createInventoryEvent(eventName) {
       const ss = getSpreadsheet();
       const historySheet = ss.getSheetByName('T_棚卸履歴');
       
-      // 【修正】nullチェック追加
-      if (!historySheet) {
+          if (!historySheet) {
         throw new Error('T_棚卸履歴シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
       
@@ -916,7 +1078,6 @@ function createInventorySnapshot(inventoryId) {
   const stockSheet = ss.getSheetByName('T_在庫');
   const detailSheet = ss.getSheetByName('T_棚卸明細');
   
-  // 【修正】nullチェック追加
   if (!stockSheet) {
     throw new Error('T_在庫シートが見つかりません。スプレッドシートの設定を確認してください。');
   }
@@ -988,8 +1149,7 @@ function registerInventoryCount(data) {
       const ss = getSpreadsheet();
       const inputSheet = ss.getSheetByName('T_棚卸担当者別入力');
       
-      // 【修正】nullチェック追加
-      if (!inputSheet) {
+          if (!inputSheet) {
         throw new Error('T_棚卸担当者別入力シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
       
@@ -1037,13 +1197,18 @@ function registerInventoryCountBatch(dataList) {
 
       dataList.forEach((data, index) => {
         try {
-          // 必須項目チェック
-          const validation = validateRequiredFields(data, ['inventoryId', 'locationId', 'productId', 'count']);
+          // 必須項目チェック（countは0を許容するため除外）
+          const validation = validateRequiredFields(data, ['inventoryId', 'locationId', 'productId']);
           if (!validation.valid) {
             throw new Error(`行${index + 1}: ${validation.errors.join(', ')}`);
           }
 
-          // 数値チェック
+          // カウント数の存在チェック（0も許容）
+          if (data.count === undefined || data.count === null || data.count === '') {
+            throw new Error(`行${index + 1}: カウント数は必須項目です`);
+          }
+
+          // 数値チェック（0以上）
           if (!validateNumber(data.count, 0)) {
             throw new Error(`行${index + 1}: カウント数は0以上の数値を入力してください`);
           }
@@ -1099,8 +1264,7 @@ function getInventoryCountsByEvent(inventoryId) {
       const ss = getSpreadsheet();
       const inputSheet = ss.getSheetByName('T_棚卸担当者別入力');
       
-      // 【修正】nullチェック追加
-      if (!inputSheet) {
+          if (!inputSheet) {
         throw new Error('T_棚卸担当者別入力シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
       
@@ -1122,8 +1286,7 @@ function getMyInventoryCounts(inventoryId) {
       const ss = getSpreadsheet();
       const inputSheet = ss.getSheetByName('T_棚卸担当者別入力');
       
-      // 【修正】nullチェック追加
-      if (!inputSheet) {
+          if (!inputSheet) {
         throw new Error('T_棚卸担当者別入力シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
       
@@ -1149,8 +1312,7 @@ function verifyInventoryCounts(inventoryId) {
       const locationSheet = ss.getSheetByName('M_保管場所');
       const userSheet = ss.getSheetByName('M_ユーザー');
 
-      // 【修正】nullチェック追加
-      if (!inputSheet) {
+          if (!inputSheet) {
         throw new Error('T_棚卸担当者別入力シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
       if (!detailSheet) {
@@ -1195,7 +1357,8 @@ function verifyInventoryCounts(inventoryId) {
         const item = grouped[key];
         if (item.counts.length > 1) {
           const firstCount = item.counts[0].count;
-          const hasDiscrepancy = item.counts.some(c => c.count !== firstCount);
+          // 【修正】型変換を明示的に行い、数値として比較
+          const hasDiscrepancy = item.counts.some(c => Number(c.count) !== Number(firstCount));
 
           if (hasDiscrepancy) {
             const detail = details.find(d =>
@@ -1265,8 +1428,7 @@ function getInventoryDetails(inventoryId) {
       const productSheet = ss.getSheetByName('M_製品');
       const locationSheet = ss.getSheetByName('M_保管場所');
       
-      // 【修正】nullチェック追加
-      if (!detailSheet) {
+          if (!detailSheet) {
         throw new Error('T_棚卸明細シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
       if (!productSheet) {
@@ -1309,8 +1471,7 @@ function finalizeInventory(inventoryId, details) {
       const historySheet = ss.getSheetByName('T_入出庫履歴');
       const inventoryHistorySheet = ss.getSheetByName('T_棚卸履歴');
       
-      // 【修正】nullチェック追加
-      if (!detailSheet) {
+          if (!detailSheet) {
         throw new Error('T_棚卸明細シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
       if (!stockSheet) {
@@ -1414,8 +1575,7 @@ function getAllStocks() {
       const productSheet = ss.getSheetByName('M_製品');
       const locationSheet = ss.getSheetByName('M_保管場所');
       
-      // 【修正】nullチェック追加
-      if (!stockSheet) {
+          if (!stockSheet) {
         throw new Error('T_在庫シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
       if (!productSheet) {
@@ -1429,26 +1589,12 @@ function getAllStocks() {
       const products = getSheetData(productSheet);
       const locations = getSheetData(locationSheet);
 
-      // デバッグログ追加
-      Logger.log('getAllStocks: stocks count = ' + stocks.length);
-      Logger.log('getAllStocks: products count = ' + products.length);
-      Logger.log('getAllStocks: locations count = ' + locations.length);
-
       const result = stocks.map(stock => {
-        // 型を文字列に統一して比較
         const stockProductId = String(stock['製品ID']);
         const stockLocationId = String(stock['保管場所ID']);
 
         const product = products.find(p => String(p['製品ID']) === stockProductId);
         const location = locations.find(l => String(l['保管場所ID']) === stockLocationId);
-
-        // デバッグ: マッチングできなかった場合のログ
-        if (!product) {
-          Logger.log('getAllStocks: 製品が見つかりません - 製品ID: ' + stockProductId);
-        }
-        if (!location) {
-          Logger.log('getAllStocks: 保管場所が見つかりません - 保管場所ID: ' + stockLocationId);
-        }
 
         return {
           在庫ID: String(stock['在庫ID'] || ''),
@@ -1459,6 +1605,8 @@ function getAllStocks() {
           保管場所ID: String(stock['保管場所ID'] || ''),
           場所名: location ? String(location['場所名'] || '') : '',
           現在在庫数: Number(stock['現在在庫数'] || 0),
+          適正在庫数: product ? Number(product['適正在庫数'] || 0) : 0,
+          担当部署: product ? String(product['担当部署'] || '') : '',
           最終更新日時: stock['最終更新日時'] ? formatDateTime(stock['最終更新日時']) : ''
         };
       });
@@ -1593,8 +1741,7 @@ function getAllProducts() {
       const ss = getSpreadsheet();
       const sheet = ss.getSheetByName('M_製品');
       
-      // 【修正】nullチェック追加
-      if (!sheet) {
+          if (!sheet) {
         throw new Error('M_製品シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
       
@@ -1617,12 +1764,10 @@ function createProduct(data) {
       const ss = getSpreadsheet();
       const sheet = ss.getSheetByName('M_製品');
 
-      // 【修正】nullチェック追加
-      if (!sheet) {
+          if (!sheet) {
         throw new Error('M_製品シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
 
-      // 【追加】製品IDを自動発行（既存の最大ID+1）
       const allData = getSheetData(sheet);
       let maxId = 0;
       allData.forEach(row => {
@@ -1639,7 +1784,9 @@ function createProduct(data) {
         'カテゴリ1': data['カテゴリ1'],
         'カテゴリ2': data['カテゴリ2'],
         '有効': data['有効'] !== undefined ? data['有効'] : true,
-        '単価': data['単価'] || 0
+        '単価': data['単価'] || 0,
+        '適正在庫数': data['適正在庫数'] || 0,
+        '担当部署': data['担当部署'] || ''
       };
       appendRowToSheet(sheet, productData);
       return { success: true, message: '製品を登録しました（ID: ' + newProductId + '）' };
@@ -1658,8 +1805,7 @@ function updateProduct(productId, data) {
       const ss = getSpreadsheet();
       const sheet = ss.getSheetByName('M_製品');
       
-      // 【修正】nullチェック追加
-      if (!sheet) {
+          if (!sheet) {
         throw new Error('M_製品シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
       
@@ -1672,7 +1818,9 @@ function updateProduct(productId, data) {
         'カテゴリ1': data['カテゴリ1'] || existing['カテゴリ1'],
         'カテゴリ2': data['カテゴリ2'] || existing['カテゴリ2'],
         '有効': data['有効'] !== undefined ? data['有効'] : existing['有効'],
-        '単価': data['単価'] !== undefined ? data['単価'] : existing['単価']
+        '単価': data['単価'] !== undefined ? data['単価'] : existing['単価'],
+        '適正在庫数': data['適正在庫数'] !== undefined ? data['適正在庫数'] : (existing['適正在庫数'] || 0),
+        '担当部署': data['担当部署'] !== undefined ? data['担当部署'] : (existing['担当部署'] || '')
       };
       updateSheetRow(sheet, existing._rowIndex, updateData);
       return { success: true, message: '製品を更新しました' };
@@ -1704,8 +1852,7 @@ function getAllUsers() {
       const ss = getSpreadsheet();
       const sheet = ss.getSheetByName('M_ユーザー');
       
-      // 【修正】nullチェック追加
-      if (!sheet) {
+          if (!sheet) {
         throw new Error('M_ユーザーシートが見つかりません。スプレッドシートの設定を確認してください。');
       }
       
@@ -1728,15 +1875,13 @@ function createUser(data) {
       const ss = getSpreadsheet();
       const sheet = ss.getSheetByName('M_ユーザー');
 
-      // 【修正】nullチェック追加
-      if (!sheet) {
+          if (!sheet) {
         throw new Error('M_ユーザーシートが見つかりません。スプレッドシートの設定を確認してください。');
       }
 
       const existingEmail = findRowByColumn(sheet, 'メールアドレス', data['メールアドレス']);
       if (existingEmail) throw new Error('メールアドレス「' + data['メールアドレス'] + '」は既に登録されています');
 
-      // 【追加】ユーザーIDを自動発行（U001形式）
       const allData = getSheetData(sheet);
       let maxNum = 0;
       allData.forEach(row => {
@@ -1776,8 +1921,7 @@ function updateUser(userId, data) {
       const ss = getSpreadsheet();
       const sheet = ss.getSheetByName('M_ユーザー');
       
-      // 【修正】nullチェック追加
-      if (!sheet) {
+          if (!sheet) {
         throw new Error('M_ユーザーシートが見つかりません。スプレッドシートの設定を確認してください。');
       }
       
@@ -1822,8 +1966,7 @@ function getAllLocations() {
       const ss = getSpreadsheet();
       const sheet = ss.getSheetByName('M_保管場所');
       
-      // 【修正】nullチェック追加
-      if (!sheet) {
+          if (!sheet) {
         throw new Error('M_保管場所シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
       
@@ -1846,12 +1989,10 @@ function createLocation(data) {
       const ss = getSpreadsheet();
       const sheet = ss.getSheetByName('M_保管場所');
 
-      // 【修正】nullチェック追加
-      if (!sheet) {
+          if (!sheet) {
         throw new Error('M_保管場所シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
 
-      // 【追加】保管場所IDを自動発行（P001形式）
       const allData = getSheetData(sheet);
       let maxNum = 0;
       allData.forEach(row => {
@@ -1887,8 +2028,7 @@ function updateLocation(locationId, data) {
       const ss = getSpreadsheet();
       const sheet = ss.getSheetByName('M_保管場所');
       
-      // 【修正】nullチェック追加
-      if (!sheet) {
+          if (!sheet) {
         throw new Error('M_保管場所シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
       
@@ -1916,8 +2056,7 @@ function deleteLocation(locationId) {
       const ss = getSpreadsheet();
       const sheet = ss.getSheetByName('M_保管場所');
       
-      // 【修正】nullチェック追加
-      if (!sheet) {
+          if (!sheet) {
         throw new Error('M_保管場所シートが見つかりません。スプレッドシートの設定を確認してください。');
       }
       

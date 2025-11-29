@@ -156,12 +156,6 @@
     function displayAllStocks(data) {
       const content = document.getElementById('result-content');
 
-      // デバッグログ追加
-      console.log('displayAllStocks called with data:', data);
-      console.log('data type:', typeof data);
-      console.log('data is Array:', Array.isArray(data));
-      console.log('data length:', data ? data.length : 'data is null/undefined');
-
       if (!data || !Array.isArray(data) || data.length === 0) {
         content.innerHTML = '<p class="text-gray-500 text-center py-8">在庫データがありません</p>';
         return;
@@ -182,17 +176,27 @@
               </tr>
             </thead>
             <tbody>
-              ${data.map(item => `
-                <tr>
+              ${data.map(item => {
+                const currentStock = Number(item['現在在庫数'] || 0);
+                const optimalStock = Number(item['適正在庫数'] || 0);
+                const isLowStock = optimalStock > 0 && currentStock < optimalStock;
+
+                return `
+                <tr ${isLowStock ? 'class="bg-yellow-50"' : ''}>
                   <td>${item['製品ID']}</td>
                   <td>${item['製品名']}</td>
                   <td>${item['カテゴリ1']}</td>
                   <td>${item['カテゴリ2']}</td>
                   <td>${item['場所名']}</td>
-                  <td class="font-semibold">${formatNumber(item['現在在庫数'])}</td>
+                  <td class="font-semibold">
+                    ${isLowStock ? '<span class="text-red-600">⚠️ </span>' : ''}
+                    ${formatNumber(currentStock)}
+                    ${optimalStock > 0 ? `<span class="text-gray-500 text-sm ml-1">(適正: ${formatNumber(optimalStock)})</span>` : ''}
+                  </td>
                   <td>${formatDateTime(item['最終更新日時'])}</td>
                 </tr>
-              `).join('')}
+                `;
+              }).join('')}
             </tbody>
           </table>
         </div>
