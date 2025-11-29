@@ -625,6 +625,78 @@ function updateStock(productId, locationId, quantity, type) {
   return newStockQuantity;
 }
 
+/**
+ * 過去の入出庫履歴を登録する（在庫連動なし）
+ * 棚卸後の理論在庫調整用
+ * @param {Object} data - 登録データ
+ * @returns {Object} 結果オブジェクト
+ */
+function registerPastStockMovement(data) {
+  return loggable('registerPastStockMovement', arguments, function() {
+    try {
+      requireAdminPermission(); // 管理者のみ実行可能
+
+      const user = getCurrentUser();
+      if (!user || !user.valid) throw new Error('ログインが必要です');
+
+      // 必須項目チェック
+      const validation = validateRequiredFields(data, ['type', 'locationId', 'productId', 'quantity', 'occurrenceDate']);
+      if (!validation.valid) throw new Error(validation.errors.join(', '));
+
+      // 数量チェック
+      if (!validateNumber(data.quantity, 1)) {
+        throw new Error('数量は1以上の数値を入力してください');
+      }
+
+      // 日付チェック（過去3ヶ月以内）
+      const occurrenceDate = new Date(data.occurrenceDate);
+      const today = new Date();
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(today.getMonth() - 3);
+
+      if (occurrenceDate > today) {
+        throw new Error('未来の日付は指定できません');
+      }
+      if (occurrenceDate < threeMonthsAgo) {
+        throw new Error('過去3ヶ月以内の日付のみ指定できます');
+      }
+
+      const quantity = Number(data.quantity);
+      const ss = getSpreadsheet();
+      const historySheet = ss.getSheetByName('T_入出庫履歴');
+
+      if (!historySheet) {
+        throw new Error('T_入出庫履歴シートが見つかりません。スプレッドシートの設定を確認してください。');
+      }
+
+      // 履歴レコードを作成（在庫連動なし）
+      const historyId = generateUniqueId('H');
+      const historyData = {
+        '履歴ID': historyId,
+        '製品ID': data.productId,
+        '数量': quantity,
+        '入出庫タイプ': data.type + '(過去調整)', // タイプに「(過去調整)」を付加
+        '現場名': data.siteName || '過去データ調整',
+        '客先': data.customerName || '',
+        '発生日時': occurrenceDate,
+        '操作ユーザーID': user.userId,
+        '保管場所ID': data.locationId
+      };
+      appendRowToSheet(historySheet, historyData);
+
+      return {
+        success: true,
+        message: '過去の' + data.type + 'を登録しました（在庫連動なし）',
+        historyId: historyId,
+        warning: 'この操作は現在の在庫数には影響しません。理論在庫の記録のみ追加されました。'
+      };
+    } catch (error) {
+      Logger.log('registerPastStockMovement Error: ' + error.toString());
+      return { success: false, error: error.toString() };
+    }
+  });
+}
+
 // ========================================
 // 入出庫履歴管理
 // ========================================
