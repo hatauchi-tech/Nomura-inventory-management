@@ -556,6 +556,123 @@ function registerStockMovement(data) {
   });
 }
 
+/**
+ * 一括出庫登録
+ * 同日・同現場への複数製品の出庫を一括で登録
+ * @param {Object} data - 登録データ（共通情報 + 製品配列）
+ * @returns {Object} 結果オブジェクト
+ */
+function registerBulkStockMovement(data) {
+  return loggable('registerBulkStockMovement', arguments, function() {
+    try {
+      const user = getCurrentUser();
+      if (!user || !user.valid) throw new Error('ログインが必要です');
+
+      // 出庫のみ対応（入庫は管理者のみなので一括登録不要）
+      if (data.type !== '出庫') {
+        throw new Error('一括登録は出庫のみ対応しています');
+      }
+
+      // 共通項目のバリデーション
+      const validation = validateRequiredFields(data, ['type', 'locationId', 'products']);
+      if (!validation.valid) throw new Error(validation.errors.join(', '));
+
+      // 製品配列のチェック
+      if (!Array.isArray(data.products) || data.products.length === 0) {
+        throw new Error('製品を1つ以上指定してください');
+      }
+
+      const ss = getSpreadsheet();
+      const historySheet = ss.getSheetByName('T_入出庫履歴');
+      const productSheet = ss.getSheetByName('M_製品');
+
+      if (!historySheet) {
+        throw new Error('T_入出庫履歴シートが見つかりません。スプレッドシートの設定を確認してください。');
+      }
+
+      // 各製品のバリデーション
+      for (let i = 0; i < data.products.length; i++) {
+        const product = data.products[i];
+
+        if (!product.productId) {
+          throw new Error(`製品 #${i + 1}: 製品IDが指定されていません`);
+        }
+
+        if (!validateNumber(product.quantity, 1)) {
+          throw new Error(`製品 #${i + 1}: 数量は1以上の数値を入力してください`);
+        }
+      }
+
+      // 全製品の在庫を事前チェック（トランザクション的処理）
+      const stockCheckResults = [];
+      for (let i = 0; i < data.products.length; i++) {
+        const product = data.products[i];
+        const currentStock = getCurrentStock(product.productId, data.locationId);
+
+        if (currentStock < product.quantity) {
+          throw new Error(
+            `製品 #${i + 1} (ID: ${product.productId}): 在庫不足 (現在在庫数: ${currentStock}、出庫数量: ${product.quantity})`
+          );
+        }
+
+        stockCheckResults.push({
+          productId: product.productId,
+          currentStock: currentStock
+        });
+      }
+
+      // 全製品の在庫がOKなら、一括で登録
+      const registeredIds = [];
+      const currentDateTime = getCurrentDateTime();
+
+      for (let i = 0; i < data.products.length; i++) {
+        const product = data.products[i];
+        const quantity = Number(product.quantity);
+
+        // 履歴登録
+        const historyId = generateUniqueId('H');
+        const historyData = {
+          '履歴ID': historyId,
+          '製品ID': product.productId,
+          '数量': quantity,
+          '入出庫タイプ': data.type,
+          '現場名': data.siteName || '',
+          '客先': data.customerName || '',
+          '発生日時': currentDateTime,
+          '操作ユーザーID': user.userId,
+          '保管場所ID': data.locationId
+        };
+        appendRowToSheet(historySheet, historyData);
+        registeredIds.push(historyId);
+
+        // 在庫更新
+        const newStock = updateStock(product.productId, data.locationId, quantity, data.type);
+
+        // アラートチェック
+        if (productSheet) {
+          const productInfo = findRowByColumn(productSheet, '製品ID', product.productId);
+          if (productInfo) {
+            const optimalStock = Number(productInfo['適正在庫数'] || 0);
+            if (optimalStock > 0 && newStock < optimalStock) {
+              sendLowStockAlert(product.productId, data.locationId, newStock, optimalStock);
+            }
+          }
+        }
+      }
+
+      return {
+        success: true,
+        message: `${data.products.length}件の出庫を登録しました`,
+        historyIds: registeredIds,
+        count: data.products.length
+      };
+    } catch (error) {
+      Logger.log('registerBulkStockMovement Error: ' + error.toString());
+      return { success: false, error: error.toString() };
+    }
+  });
+}
+
 function updateStock(productId, locationId, quantity, type) {
   const ss = getSpreadsheet();
   const stockSheet = ss.getSheetByName('T_在庫');
