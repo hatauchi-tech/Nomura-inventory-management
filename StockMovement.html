@@ -40,6 +40,13 @@
           </div>
         </div>
 
+        <div id="bulk-mode-group" style="display: none;">
+          <label class="flex items-center cursor-pointer">
+            <input type="checkbox" id="bulkMode" class="w-5 h-5 mr-2 text-blue-600">
+            <span class="text-base font-medium text-gray-700">複数製品を一括登録する</span>
+          </label>
+        </div>
+
         <div>
           <label for="location" class="block text-sm font-medium text-gray-700 mb-2">
             保管場所 <span class="text-red-500">*</span>
@@ -68,49 +75,68 @@
                  placeholder="例: 株式会社〇〇">
         </div>
 
-        <div>
-          <label for="category1" class="block text-sm font-medium text-gray-700 mb-2">
-            カテゴリ1
-          </label>
-          <select id="category1" name="category1"
-                  class="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-            <option value="">すべて</option>
-          </select>
+        <!-- 単一登録モード用の製品選択 -->
+        <div id="single-product-section">
+          <div>
+            <label for="category1" class="block text-sm font-medium text-gray-700 mb-2">
+              カテゴリ1
+            </label>
+            <select id="category1" name="category1"
+                    class="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+              <option value="">すべて</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="category2" class="block text-sm font-medium text-gray-700 mb-2">
+              カテゴリ2
+            </label>
+            <select id="category2" name="category2"
+                    class="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+              <option value="">すべて</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="product" class="block text-sm font-medium text-gray-700 mb-2">
+              製品 <span class="text-red-500">*</span>
+            </label>
+            <select id="product" name="productId" required
+                    class="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+              <option value="">選択してください</option>
+            </select>
+          </div>
+
+          <div id="current-stock-display" class="bg-blue-50 border border-blue-200 rounded-lg p-4" style="display: none;">
+            <p class="text-base text-blue-700">
+              現在在庫数: <span id="current-stock" class="font-bold text-lg">0</span>
+            </p>
+          </div>
+
+          <div>
+            <label for="quantity" class="block text-sm font-medium text-gray-700 mb-2">
+              数量 <span class="text-red-500">*</span>
+            </label>
+            <input type="number" id="quantity" name="quantity" required min="1"
+                   class="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   placeholder="数量を入力">
+          </div>
         </div>
 
-        <div>
-          <label for="category2" class="block text-sm font-medium text-gray-700 mb-2">
-            カテゴリ2
-          </label>
-          <select id="category2" name="category2"
-                  class="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-            <option value="">すべて</option>
-          </select>
-        </div>
-
-        <div>
-          <label for="product" class="block text-sm font-medium text-gray-700 mb-2">
-            製品 <span class="text-red-500">*</span>
-          </label>
-          <select id="product" name="productId" required
-                  class="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-            <option value="">選択してください</option>
-          </select>
-        </div>
-
-        <div id="current-stock-display" class="bg-blue-50 border border-blue-200 rounded-lg p-4" style="display: none;">
-          <p class="text-base text-blue-700">
-            現在在庫数: <span id="current-stock" class="font-bold text-lg">0</span>
-          </p>
-        </div>
-
-        <div>
-          <label for="quantity" class="block text-sm font-medium text-gray-700 mb-2">
-            数量 <span class="text-red-500">*</span>
-          </label>
-          <input type="number" id="quantity" name="quantity" required min="1"
-                 class="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                 placeholder="数量を入力">
+        <!-- 一括登録モード用の製品選択 -->
+        <div id="bulk-product-section" style="display: none;">
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              製品一覧 <span class="text-red-500">*</span>
+            </label>
+            <div id="product-rows-container" class="space-y-4">
+              <!-- 製品行が動的に追加されます -->
+            </div>
+          </div>
+          <button type="button" id="add-product-btn"
+                  class="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 text-base font-semibold">
+            ＋ 製品を追加
+          </button>
         </div>
 
         <div id="error-message" class="hidden bg-red-50 border border-red-200 rounded-lg p-4">
@@ -137,15 +163,20 @@
 
   <script>
     let currentStockValue = 0;
-    
+    let productRowCounter = 0;
+    let allCategory1Data = [];
+
     window.addEventListener('load', function() {
       loadLocations();
       loadCategory1List();
-      
+
       document.querySelectorAll('input[name="type"]').forEach(radio => {
         radio.addEventListener('change', handleTypeChange);
       });
-      
+
+      document.getElementById('bulkMode').addEventListener('change', handleBulkModeChange);
+      document.getElementById('add-product-btn').addEventListener('click', addProductRow);
+
       document.getElementById('category1').addEventListener('change', handleCategory1Change);
       document.getElementById('category2').addEventListener('change', handleCategory2Change);
       document.getElementById('product').addEventListener('change', handleProductChange);
@@ -189,25 +220,225 @@
       const siteNameInput = document.getElementById('siteName');
       const customerNameGroup = document.getElementById('customer-name-group');
       const customerNameInput = document.getElementById('customerName');
+      const bulkModeGroup = document.getElementById('bulk-mode-group');
+      const bulkModeCheckbox = document.getElementById('bulkMode');
 
       if (isShipment) {
-        // 出庫時: 現場名・号地とお客様名を表示
+        // 出庫時: 現場名・号地、お客様名、一括登録チェックボックスを表示
         siteNameGroup.style.display = 'block';
         siteNameInput.required = true;
         customerNameGroup.style.display = 'block';
+        bulkModeGroup.style.display = 'block';
       } else {
-        // 入庫時: 現場名・号地とお客様名を非表示
+        // 入庫時: 現場名・号地、お客様名、一括登録チェックボックスを非表示
         siteNameGroup.style.display = 'none';
         siteNameInput.required = false;
         siteNameInput.value = '';
         customerNameGroup.style.display = 'none';
         customerNameInput.value = '';
+        bulkModeGroup.style.display = 'none';
+        bulkModeCheckbox.checked = false;
+        handleBulkModeChange();
       }
 
       if (isShipment) {
         handleProductChange();
       } else {
         document.getElementById('current-stock-display').style.display = 'none';
+      }
+    }
+
+    function handleBulkModeChange() {
+      const bulkMode = document.getElementById('bulkMode').checked;
+      const singleSection = document.getElementById('single-product-section');
+      const bulkSection = document.getElementById('bulk-product-section');
+
+      if (bulkMode) {
+        // 一括登録モード: 単一セクションを非表示、一括セクションを表示
+        singleSection.style.display = 'none';
+        bulkSection.style.display = 'block';
+
+        // 単一セクションの必須項目を解除
+        document.getElementById('product').required = false;
+        document.getElementById('quantity').required = false;
+
+        // 初期製品行を追加（まだ無い場合）
+        const container = document.getElementById('product-rows-container');
+        if (container.children.length === 0) {
+          addProductRow();
+        }
+      } else {
+        // 単一登録モード: 一括セクションを非表示、単一セクションを表示
+        singleSection.style.display = 'block';
+        bulkSection.style.display = 'none';
+
+        // 単一セクションの必須項目を復元
+        document.getElementById('product').required = true;
+        document.getElementById('quantity').required = true;
+
+        // 一括セクションの製品行をクリア
+        document.getElementById('product-rows-container').innerHTML = '';
+        productRowCounter = 0;
+      }
+    }
+
+    function addProductRow() {
+      const rowId = productRowCounter++;
+      const container = document.getElementById('product-rows-container');
+
+      const rowDiv = document.createElement('div');
+      rowDiv.className = 'border border-gray-300 rounded-lg p-4 bg-gray-50';
+      rowDiv.id = `product-row-${rowId}`;
+      rowDiv.setAttribute('data-row-id', rowId);
+
+      rowDiv.innerHTML = `
+        <div class="flex justify-between items-center mb-3">
+          <h3 class="text-base font-semibold text-gray-700">製品 #${rowId + 1}</h3>
+          <button type="button" class="text-red-600 hover:text-red-800 font-semibold" onclick="removeProductRow(${rowId})">
+            削除
+          </button>
+        </div>
+
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">カテゴリ1</label>
+            <select id="bulk-category1-${rowId}" class="bulk-category1 w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    onchange="handleBulkCategory1Change(${rowId})">
+              <option value="">すべて</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">カテゴリ2</label>
+            <select id="bulk-category2-${rowId}" class="bulk-category2 w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    onchange="handleBulkCategory2Change(${rowId})">
+              <option value="">すべて</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">製品 <span class="text-red-500">*</span></label>
+            <select id="bulk-product-${rowId}" class="bulk-product w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" required
+                    onchange="handleBulkProductChange(${rowId})">
+              <option value="">選択してください</option>
+            </select>
+          </div>
+
+          <div id="bulk-stock-display-${rowId}" class="bg-blue-50 border border-blue-200 rounded-lg p-3" style="display: none;">
+            <p class="text-sm text-blue-700">
+              現在在庫数: <span id="bulk-stock-${rowId}" class="font-bold">0</span>
+            </p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">数量 <span class="text-red-500">*</span></label>
+            <input type="number" id="bulk-quantity-${rowId}" class="bulk-quantity w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   required min="1" placeholder="数量を入力">
+          </div>
+        </div>
+      `;
+
+      container.appendChild(rowDiv);
+
+      // カテゴリ1のオプションをロード
+      loadBulkCategory1Options(rowId);
+    }
+
+    function removeProductRow(rowId) {
+      const row = document.getElementById(`product-row-${rowId}`);
+      if (row) {
+        row.remove();
+      }
+
+      // 製品行がすべて削除された場合、新しい行を追加
+      const container = document.getElementById('product-rows-container');
+      if (container.children.length === 0) {
+        addProductRow();
+      }
+    }
+
+    function loadBulkCategory1Options(rowId) {
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const select = document.getElementById(`bulk-category1-${rowId}`);
+          if (select) {
+            data.forEach(cat => {
+              const option = document.createElement('option');
+              option.value = cat;
+              option.textContent = cat;
+              select.appendChild(option);
+            });
+          }
+        })
+        .withFailureHandler(showError)
+        .getCategory1List();
+    }
+
+    function handleBulkCategory1Change(rowId) {
+      const category1 = document.getElementById(`bulk-category1-${rowId}`).value;
+      const category2Select = document.getElementById(`bulk-category2-${rowId}`);
+
+      category2Select.innerHTML = '<option value="">すべて</option>';
+
+      if (category1) {
+        google.script.run
+          .withSuccessHandler(function(data) {
+            data.forEach(cat => {
+              const option = document.createElement('option');
+              option.value = cat;
+              option.textContent = cat;
+              category2Select.appendChild(option);
+            });
+          })
+          .withFailureHandler(showError)
+          .getCategory2List(category1);
+      }
+      loadBulkProducts(rowId);
+    }
+
+    function handleBulkCategory2Change(rowId) {
+      loadBulkProducts(rowId);
+    }
+
+    function loadBulkProducts(rowId) {
+      const category1 = document.getElementById(`bulk-category1-${rowId}`).value;
+      const category2 = document.getElementById(`bulk-category2-${rowId}`).value;
+
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const select = document.getElementById(`bulk-product-${rowId}`);
+          if (select) {
+            select.innerHTML = '<option value="">選択してください</option>';
+
+            data.forEach(prod => {
+              const option = document.createElement('option');
+              option.value = prod['製品ID'];
+              option.textContent = `${prod['製品ID']} - ${prod['製品名']}`;
+              select.appendChild(option);
+            });
+          }
+        })
+        .withFailureHandler(showError)
+        .getProductsByCategory(category1, category2);
+    }
+
+    function handleBulkProductChange(rowId) {
+      const productId = document.getElementById(`bulk-product-${rowId}`).value;
+      const locationId = document.getElementById('location').value;
+
+      if (productId && locationId) {
+        google.script.run
+          .withSuccessHandler(function(stock) {
+            const stockDisplay = document.getElementById(`bulk-stock-display-${rowId}`);
+            const stockValue = document.getElementById(`bulk-stock-${rowId}`);
+            if (stockDisplay && stockValue) {
+              stockValue.textContent = stock;
+              stockDisplay.style.display = 'block';
+              stockDisplay.setAttribute('data-stock', stock);
+            }
+          })
+          .withFailureHandler(showError)
+          .getCurrentStock(productId, locationId);
       }
     }
     
@@ -279,22 +510,34 @@
     function handleSubmit(e) {
       e.preventDefault();
       hideMessages();
-      
+
       const formData = new FormData(e.target);
+      const bulkMode = document.getElementById('bulkMode').checked;
+
+      if (bulkMode) {
+        // 一括登録モード
+        handleBulkSubmit(formData);
+      } else {
+        // 単一登録モード
+        handleSingleSubmit(formData);
+      }
+    }
+
+    function handleSingleSubmit(formData) {
       const data = {
         type: formData.get('type'),
         locationId: formData.get('locationId'),
         productId: formData.get('productId'),
         quantity: formData.get('quantity'),
         siteName: formData.get('siteName') || '',
-        customerName: formData.get('customerName') || '' // ★★★ 客先（追加） ★★★
+        customerName: formData.get('customerName') || ''
       };
-      
+
       if (data.type === '出庫' && parseInt(data.quantity) > currentStockValue) {
         showError(`在庫不足: 現在在庫数${currentStockValue}に対して${data.quantity}の出庫はできません`);
         return;
       }
-      
+
       showLoading();
       google.script.run
         .withSuccessHandler(function(result) {
@@ -314,6 +557,79 @@
           showError('エラーが発生しました: ' + error.message);
         })
         .registerStockMovement(data);
+    }
+
+    function handleBulkSubmit(formData) {
+      // 複数製品のデータを収集
+      const products = [];
+      const container = document.getElementById('product-rows-container');
+      const productRows = container.querySelectorAll('[data-row-id]');
+
+      // 各製品行からデータを収集
+      for (let row of productRows) {
+        const rowId = row.getAttribute('data-row-id');
+        const productId = document.getElementById(`bulk-product-${rowId}`).value;
+        const quantity = document.getElementById(`bulk-quantity-${rowId}`).value;
+        const stockDisplay = document.getElementById(`bulk-stock-display-${rowId}`);
+        const currentStock = stockDisplay ? parseInt(stockDisplay.getAttribute('data-stock') || '0') : 0;
+
+        if (!productId) {
+          showError(`製品 #${parseInt(rowId) + 1}: 製品を選択してください`);
+          return;
+        }
+
+        if (!quantity || parseInt(quantity) < 1) {
+          showError(`製品 #${parseInt(rowId) + 1}: 数量を入力してください（1以上）`);
+          return;
+        }
+
+        if (parseInt(quantity) > currentStock) {
+          showError(`製品 #${parseInt(rowId) + 1}: 在庫不足（現在在庫数: ${currentStock}、出庫数量: ${quantity}）`);
+          return;
+        }
+
+        products.push({
+          productId: productId,
+          quantity: parseInt(quantity)
+        });
+      }
+
+      if (products.length === 0) {
+        showError('製品を1つ以上追加してください');
+        return;
+      }
+
+      // 一括登録データを作成
+      const data = {
+        type: formData.get('type'),
+        locationId: formData.get('locationId'),
+        siteName: formData.get('siteName') || '',
+        customerName: formData.get('customerName') || '',
+        products: products
+      };
+
+      showLoading();
+      google.script.run
+        .withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            showSuccess(result.message);
+            // フォームをリセット
+            document.getElementById('stock-movement-form').reset();
+            document.getElementById('site-name-group').style.display = 'none';
+            document.getElementById('customer-name-group').style.display = 'none';
+            document.getElementById('bulk-mode-group').style.display = 'none';
+            document.getElementById('bulkMode').checked = false;
+            handleBulkModeChange();
+          } else {
+            showError(result.error);
+          }
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          showError('エラーが発生しました: ' + error.message);
+        })
+        .registerBulkStockMovement(data);
     }
   </script>
 </body>
